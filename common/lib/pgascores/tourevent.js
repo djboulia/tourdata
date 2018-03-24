@@ -1,6 +1,6 @@
 /**
  *
- *	Get tournament results from the Golf Channel site.  
+ *	Get tournament results from the Golf Channel site.
  *
  *  I've tried multiple options over the past few years to get consistent tour data.
  *  First Yahoo! Sports, then the PGA tour site
@@ -12,15 +12,18 @@
 
 var request = require('request');
 var cheerio = require('cheerio');
+var esprima = require('esprima');
 
 var PlayerData = require('./playerdata.js');
 var Parser = require('./utils/htmlparser.js');
 
 //
-// expects a string in Month dd-dd, yyyy 
+// expects a string in Month dd-dd, yyyy
 // or Month dd-Month dd, yyyy format
 //
 var parseDateRange = function (str) {
+    console.log("parseDateRange: " + str);
+
     var dateparts = str.split('-');
     var startdate = dateparts[0];
     var startdateparts = startdate.split(' ');
@@ -64,7 +67,7 @@ var getEventDetails = function ($) {
     ];
 
     // get table data
-    var eventDetails = $('div.currentTourHeading');
+    var eventDetails = $('div.currentTourHeadingTitle');
 
     if (eventDetails == undefined) {
         console.log("Couldn't find event details!");
@@ -72,8 +75,8 @@ var getEventDetails = function ($) {
     }
 
     var eventName = Parser.text($('h1', eventDetails));
-    var details = $('div#tournamentData', eventDetails);
-    var courseDetails = $('div#infoBar', details);
+    var details = $('div#tourteaser', eventDetails);
+    var courseDetails = details; // $('div#infoBar', details);
     var eventDate = Parser.text($('h4', details));
     var dateRange = parseDateRange(eventDate);
 
@@ -99,7 +102,7 @@ var getEventDetails = function ($) {
                 var words = Parser.words($(this));
 
                 courseInfo[key] = words[1]; // only take the data portion
-                    
+
                 break;
 
             default:
@@ -159,22 +162,22 @@ var fieldsInProgress = [
 
 //
 // return the right field mapping based on whether the tournament is in progress
-// or not.  we detect that by looking at the cell count, which changes from 
+// or not.  we detect that by looking at the cell count, which changes from
 // a table showing starting tee time to one where the player's current round
 // progress is displayed
 //
 var getFields = function(cells){
-    
+
     var fields = null;
-    
+
     if (cells.length == 11) {
         console.log("cells.length == 11, round in progress");
-                    
+
         fields = fieldsInProgress;
     } else {
         fields = fieldsComplete;
     }
-    
+
     return fields;
 };
 
@@ -182,11 +185,79 @@ var getUrl = function (year, tour, event) {
     return "http://www.golfchannel.com/tours/" + tour + "/" + year + "/" + event;
 };
 
+//
+// return an array of inline script content from the html page
+//
+var getInlineScripts = function( $ ) {
 
-var getEvent = function (year, tour, event, callback) {
+  var scriptTags = $('script').get();
+  var length = scriptTags.length;
+  console.log("script tags: " + length );
+
+  var scripts = [];
+
+  for (var i=0; i<length; i++) {
+    // scripts can be external <script src="http://foo.bar"></script>
+    // or inline <script>var foo=bar;</script>
+    // inline scripts are those without a src attribute
+    var src = scriptTags[i].attribs['src'];
+
+    if (!src) {
+      var inline = scriptTags[i].children[0].data;
+
+      scripts.push(inline);
+    }
+  }
+
+  return scripts;
+};
+
+//
+// tournament round details are contained in an inline script from the source
+// webpage.  we look for the right inline script and parse the JSON
+// structure to get at the tournament details.
+//
+var parseRoundDetails = function( $ ) {
+
+  var scripts = getInlineScripts( $ );
+
+  for (var i=0; i<scripts.length; i++) {
+      var inline = scripts[i];
+
+      // look for an inline script that has the tournamentJSON
+      // the golf channel puts this in the web page for use by
+      // browser side scripts to show per-round detail of a
+      // tournament. we can parse this info as a JSON structure
+      // to get all of the detailed round stats.
+
+      if (inline.includes('tournamentJSON')) {
+        console.log("tournamentJSON found!");
+
+        var beginString = "tournamentJSON = ";
+        var endString = ";\n  $('body').data";
+
+        var start = inline.indexOf(beginString);
+        var end = inline.indexOf(endString);
+
+        if (start > 0 && end > 0) {
+          var tournamentJSON = JSON.parse(inline.substring(start+beginString.length,end));
+          console.log("tournament=" + tournamentJSON.title + ", defending champ=" + tournamentJSON.defending_champ);
+          console.log(JSON.stringify(tournamentJSON), null, 2);
+
+          return tournamentJSON;
+        }
+    }
+  }
+
+  console.log("ERROR: did not find tournament round details!");
+
+  return null;
+};
+
+exports.getEvent = function (tour, year, event, callback) {
 
     var url = getUrl(year, tour, event);
-    
+
     console.log("url : " + url);
 
     request(url, function (error, response, html) {
@@ -217,8 +288,8 @@ var getEvent = function (year, tour, event, callback) {
 
             // process each row in the table
             $('tr.playerRow', table).each(function (i, tr) {
-                
-                var cells = Parser.cells($, tr);                
+
+                var cells = Parser.cells($, tr);
                 var playerFields = getFields(cells);
                 var record = Parser.mapFields(cells, playerFields);
 
@@ -237,6 +308,8 @@ var getEvent = function (year, tour, event, callback) {
                 row++;
             });
 
+            var roundDetails = parseRoundDetails($);
+
             callback({
                 "name": eventInfo.name,
                 "start": eventInfo.start.toString(),
@@ -246,34 +319,9 @@ var getEvent = function (year, tour, event, callback) {
                 "created_at": new Date()
             });
         } else {
-            console.log("Error retrieving page: " + JSON.stringify(response));
+          // console.log("Error retrieving page: " + JSON.stringify(response));
+          console.log("Error retrieving page: " + url);
             callback(null);
-        }
-    });
-};
-
-
-/**
- *	getEvent
- *
- *	@year 			: year this tournament took place
- *  @tour           : tour name (e.g. pga-tour)
- *  @event          : event name (e.g. us-open)
- *	@callback 		: will be called back with eventdata as only argument
- *		 			  eventdata : hash of event keys, tournament descriptions
- */
-exports.getEvent = function (year, tour, event, callback) {
-
-
-    getEvent(year, tour, event, function (eventdata) {
-        if (eventdata == null) {
-
-            console.log("PGA event call failed!");
-            callback(null);
-
-        } else {
-
-            callback(eventdata);
         }
     });
 };

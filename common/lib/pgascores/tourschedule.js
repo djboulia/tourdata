@@ -15,57 +15,24 @@ var cheerio = require('cheerio');
 
 var Parser = require('./utils/htmlparser.js');
 
-var getUrl = function (tour, year) {
-    return "http://www.golfchannel.com/tours/" + tour + "/?t=schedule&year=" + year;
+var getUrl = function(tour, year) {
+  return "http://www.golfchannel.com/tours/" + tour + "/?t=schedule&year=" + year;
 };
 
-var fixupDates = function (records, year) {
-    // the PGA and European seasons for a given year actually start in the prior year
-    // e.g. 2015 season kicks off with fall events in Oct/Nov of 2014
-    //
-    // since the data returned from the feed only has month and day (no year) we need 
-    // to account for that here
-    //
-    // NOTE: this solution assumes a January tournament.  For the PGA and European 
-    //       tours this is true... may not work for others
+//
+// return true if course is contained in courses
+//
+var isDuplicateCourse = function( courses, course ) {
+  for (var i=0; i<courses.length; i++) {
+    console.log("courses[i]=" + courses[i] + ", course=" + course);
 
-    var lastYear = true;
-
-    // process all records (which are in chronological order) looking for the date
-    // transition to the current year
-    for (var i = 0; i < records.length; i++) {
-        var record = records[i];
-
-        // expect a month<sp>day combination
-        var startDateParts = record['startDate'].split(" ");
-        var endDateParts = record['endDate'].split(" ");
-
-        // flip over to new year when we see January
-        if (lastYear && (startDateParts[0].toLowerCase() == 'jan')) {
-            lastYear = false;
-
-            record['startDate'] = new Date(record['startDate'] + ", " + year);
-            record['endDate'] = new Date(record['endDate'] + ", " + year);
-        } else if (lastYear && (endDateParts[0].toLowerCase() == 'jan')) {
-            // special case: start/end date spans a year                           
-            lastYear = false;
-
-            record['startDate'] = new Date(record['startDate'] + ", " + year - 1);
-            record['endDate'] = new Date(record['endDate'] + ", " + year);
-        } else {
-            // not a boundary condition, just process the date 
-            record['startDate'] = new Date(record['startDate'] + ", " + ((lastYear) ? year - 1 : year));
-            record['endDate'] = new Date(record['endDate'] + ", " + ((lastYear) ? year - 1 : year));
-        }
+    if (courses[i] === course) {
+      console.log("found duplicate course " + course);
+      return true;
     }
-};
+  }
 
-var createPath = function (tournament) {
-    // build the path to get details about this tournament
-
-    return '/' + tournament.year +
-        '/tour/' + tournament.tour +
-        '/event/' + tournament.id;
+  return false;
 };
 
 //
@@ -77,188 +44,150 @@ var createPath = function (tournament) {
 //      ...
 //  </small>
 //
-//  look for the outer tag and parse the contents 
+//  look for the outer tag and parse the contents
 //  into an array of courses
 //
-var parseCourses = function ($, el) {
-    var contents = $('small', el).contents();
-    var courses = [];
+var parseCourses = function($, el) {
+  var contents = $('small', el).contents();
+  var courses = [];
 
-    for (var i = 0; i < contents.length; i++) {
+  for (var i = 0; i < contents.length; i++) {
 
-        //        console.log("found text " + contents.eq(i).text() + 
-        //                    " with tagName " + contents.get(i).tagName);
+    //        console.log("found text " + contents.eq(i).text() +
+    //                    " with tagName " + contents.get(i).tagName);
 
-        var course = Parser.text($(contents.get(i)));
+    var course = Parser.text($(contents.get(i)));
 
-        if (course) {
-            courses.push(course);
-        }
+    // sometimes the golf channel site will list the same course name twice.
+    // check for that and don't bother to add when that's the case
+    if (course && !isDuplicateCourse(courses, course)) {
+      courses.push(course);
     }
+  }
 
-    return courses;
+  return courses;
 };
 
 //
 //  chop up the web elements to gather details about the tournament
 //
-var parseTournamentDetails = function ($, el) {
-    var details = {};
+var parseTournamentDetails = function($, el) {
+  var details = {};
 
-    var tournamentName = $('p', el);
-    details.name = Parser.text($(tournamentName));
+  var tournamentName = $('p', el);
+  details.name = Parser.text($(tournamentName));
 
-    var tournamentUrl = $('a', tournamentName);
-    details.url = tournamentUrl.attr('href');
+  var tournamentUrl = $('a', tournamentName);
+  details.url = tournamentUrl.attr('href');
 
-    details.courses = parseCourses($, el);
+  details.courses = parseCourses($, el);
 
-    // get tour and tournament name identifiers from the url
-    var parts = details.url.split('/');
+  // get tour and tournament name identifiers from the url
+  var parts = details.url.split('/');
 
-    details.tour = parts[4];
-    details.year = parts[5];
-    details.id = parts[6];
+  details.tour = parts[4];
+  details.year = parts[5];
+  details.id = parts[6];
 
-    console.log(JSON.stringify(details));
+  console.log(JSON.stringify(details));
 
-    return details;
-}
-
-//
-// Go to the golfchannel site for schedule data
-//
-var getSchedule = function (tour, year, callback) {
-
-    //
-    // labels for the fields we want to keep
-    //
-    var fields = [
-        "date", // 0: start and end dates for the tournament
-        "tournament", // 1: tournament name, link to details, course name
-        "purse", // 2: purse for winner
-        "winner" // 3: winning player name    
-        ];
-
-    var url = getUrl(tour, year);
-
-    console.log("url : " + url);
-
-    request(url, function (error, response, html) {
-        if (!error && response.statusCode == 200) {
-
-            var $ = cheerio.load(html);
-
-            // get table data
-            var table = $('table#tourSchedule');
-            if (table == undefined) {
-                console.log("Couldn't find schedule table!");
-                callback(null);
-                return;
-            }
-
-            var row = 0;
-            var records = [];
-
-            // process each row in the table
-            $('tr.scheduleRow', table).each(function (i, tr) {
-                var record = {};
-                var td = $('td', tr);
-
-                if (td.each != undefined) {
-                    var ndx = 0;
-
-                    td.each(function (i, el) {
-                        var key = "";
-
-                        if (ndx < fields.length) {
-                            key = fields[ndx];
-                        }
-
-                        if (key == 'tournament') {
-                            // tournament needs to be parsed into tournament name, url, course
-                            var tournament = parseTournamentDetails($, this);
-
-                            record.tournament = tournament.name;
-                            record.link = {
-                                rel: "self",
-                                href: createPath(tournament)
-                            };
-                            record.courses = tournament.courses;
-
-                        } else if (key == 'date') {
-                            // parse into start and end dates
-                            var start = $('p.scheduleDateStart', this);
-                            var end = $('p.scheduleDateEnd', this);
-
-                            // remove embedded white space to get month, day 
-                            var startDate = Parser.text($(start));
-                            record.startDate = startDate;
-
-                            // remove embedded white space to get month, day 
-                            var endDate = Parser.text($(end));
-                            record.endDate = endDate;
-
-                        } else if (key != "") {
-                            // replace whitespace with spaces to resolve encoding issues
-                            record[key] = Parser.text($(this));
-                        }
-
-                        ndx++;
-                    });
-
-                    //console.log(JSON.stringify(record));
-
-                    records.push(record);
-                }
-
-                row++;
-            });
-
-            fixupDates(records, year);
-
-
-            callback({
-                "schedule": records,
-                "created_at": new Date()
-            });
-        } else {
-            //            console.log("Error retrieving page: " + JSON.stringify(response));
-            console.log("Error retrieving page");
-            callback(null);
-        }
-    });
+  return details;
 };
 
+//
+// get tour schedule from Golf Channel
+//
+// tour: the name of the tour, e.g. pga-tour or european_tour
+// year: year to search
+// callback: function called when complete
+//
+exports.getSchedule = function(tour, year, callback) {
 
-/**
- *	getSchedule
- *
- *	@tour 			: tour, e.g. pga or european
- *	@year 			: year to get schedule for 
- *	@callback 		: will be called back with results of search
- */
-exports.getSchedule = function (tour, year, callback) {
+  //
+  // labels for the fields we want to keep
+  //
+  var fields = [
+    "date", // 0: start and end dates for the tournament
+    "tournament", // 1: tournament name, link to details, course name
+    "purse", // 2: purse for winner
+    "winner" // 3: winning player name
+  ];
 
-    var tourname = "";
-    switch (tour.toLowerCase()) {
-    case 'pga':
-        tourname = 'pga-tour';
-        break;
-    case 'european':
-        tourname = 'european-tour';
-        break;
-    default:
-        console.error("Invalid tour name " + tour);
-    }
+  var url = getUrl(tour, year);
 
-    getSchedule(tourname, year, function (results) {
-        if (results == null) {
-            console.log("getSchedule() failed!");
-            callback(null);
+  console.log("url : " + url);
 
-        } else {
-            callback(results);
+  request(url, function(error, response, html) {
+    if (!error && response.statusCode == 200) {
+
+      var $ = cheerio.load(html);
+
+      // get table data
+      var table = $('table#tourSchedule');
+      if (table == undefined) {
+        console.log("Couldn't find schedule table!");
+        callback(null);
+        return;
+      }
+
+      var row = 0;
+      var records = [];
+
+      // process each row in the table
+      $('tr.scheduleRow', table).each(function(i, tr) {
+        var record = {};
+        var td = $('td', tr);
+
+        if (td.each != undefined) {
+          var ndx = 0;
+
+          td.each(function(i, el) {
+            var key = "";
+
+            if (ndx < fields.length) {
+              key = fields[ndx];
+            }
+
+            if (key == 'tournament') {
+              // tournament needs to be parsed into tournament name, url, course
+              var tournament = parseTournamentDetails($, this);
+
+              record.tournament = tournament;
+
+            } else if (key == 'date') {
+              // parse into start and end dates
+              var start = $('p.scheduleDateStart', this);
+              var end = $('p.scheduleDateEnd', this);
+
+              // remove embedded white space to get month, day
+              var startDate = Parser.text($(start));
+              record.startDate = startDate;
+
+              // remove embedded white space to get month, day
+              var endDate = Parser.text($(end));
+              record.endDate = endDate;
+
+            } else if (key != "") {
+              // replace whitespace with spaces to resolve encoding issues
+              record[key] = Parser.text($(this));
+            }
+
+            ndx++;
+          });
+
+          //console.log(JSON.stringify(record));
+
+          records.push(record);
         }
-    });
+
+        row++;
+      });
+
+      callback(records);
+    } else {
+      //            console.log("Error retrieving page: " + JSON.stringify(response));
+      console.log("Error retrieving page");
+      callback(null);
+    }
+  });
 };

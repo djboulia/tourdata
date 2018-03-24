@@ -1,16 +1,17 @@
 /**
  *
- * helpful functions for mangling player names
+ * helpful functions for mangling player or tournament names
  *
  **/
 
 /**
  *	normalize	: turn a name into a searchable entity
  *
- * convert player name into a normalized version we can use as a unique id
+ * convert a string into a normalized version we can use as a unique id
  *
- * remove all commas and periods
+ * remove all commas, periods, ampersands
  * convert hyphens and spaces to underscores
+ * remove any double underscores
  * make the name lower case
  * The string "Ted Jones-Davis, Jr." would becomes "ted_jones_davis_jr"
  *
@@ -19,10 +20,12 @@
  *  @returns	: the normalized string
  **/
 exports.normalize = function( str ) {
-	str = str.replace( /,/g, '');	// remove any commas
-	str = str.replace( /\./g, '');	// remove any periods
-	str = str.replace( /-/g, '_');	// replace hyphens with underscores
-	str = str.replace( /\s/g, '_');	// spaces with underscores
+	str = str.replace( /,/g, '');			// remove any commas
+	str = str.replace( /\./g, '');		// remove any periods
+	str = str.replace( /\&/g, '');		// remove any ampersands
+	str = str.replace( /-/g, '_');		// replace hyphens with underscores
+	str = str.replace( /\s/g, '_');		// replace spaces with underscores
+	str = str.replace(/__+/g, '_');		// remove extra underscores
 	str = str.toLowerCase();
 	return str;
 };
@@ -32,9 +35,9 @@ exports.normalize = function( str ) {
  **/
 exports.reverseName = function( str ) {
     var parts = str.split(",");
-    
+
     if (parts.length<2) {
-        console.log("_reverseName: warning, couldn't reverse name " + str);
+        console.log("nameutils.reverseName: warning, couldn't reverse name " + str);
         return str;
     } else {
         return parts[1].trim() + " " + parts[0].trim();
@@ -123,4 +126,3 @@ exports.fuzzyMatch = function (name1, name2) {
 
     return (result > 0) ? result : -1;
 };
-

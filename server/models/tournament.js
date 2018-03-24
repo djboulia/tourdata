@@ -10,6 +10,7 @@ var db = cloudant.use(dbName);
 
 var libPath = '../../common/lib';
 var pgaLibPath = libPath + '/pgascores';
+var Tournaments = require(pgaLibPath + '/tournaments.js')
 
 var Logger = require(libPath + '/logger.js');
 logger = new Logger(true);
@@ -18,13 +19,12 @@ logger = new Logger(true);
 module.exports = function (Tournament) {
 
     var app = require('../server');
-    var schedule = require(pgaLibPath + '/tourschedule.js')
 
     /**
      * /search
      *
      * tournament/search?year=2016&tour=pga
-     * 
+     *
      * returns the tour events that match the specified search parameters
      *
      **/
@@ -33,7 +33,7 @@ module.exports = function (Tournament) {
         var str = "searching for tournaments in year " + year + " and tour " + tour;
         logger.log(str);
 
-        schedule.getSchedule(tour, year, function (results) {
+        Tournaments.search(tour, year, function (results) {
             logger.debug(JSON.stringify(results));
 
             cb(null, results);
@@ -77,7 +77,7 @@ module.exports = function (Tournament) {
     );
 
     /**
-     * 
+     *
      * validate search arguments
      *
      **/
@@ -119,14 +119,13 @@ module.exports = function (Tournament) {
     });
 
 
-    Tournament.scores = function (year, tour, event, cb) {
+    Tournament.scores = function (tour, year, event, cb) {
 
-        var scores = require(pgaLibPath + '/golfchannelprovider.js')
         var str = "getting scores for year " + year + " tour " + tour + " event " + event;
 
         logger.log(str);
 
-        scores.getEvent(year, tour, event, function (results) {
+        Tournaments.getEvent(tour, year, event, function (results) {
             logger.debug(JSON.stringify(results));
 
             cb(null, results);
@@ -145,13 +144,13 @@ module.exports = function (Tournament) {
 
             accepts: [
                 {
-                    arg: 'year',
-                    type: 'number',
+                    arg: 'tour',
+                    type: 'string',
                     required: true
                 },
                 {
-                    arg: 'tour',
-                    type: 'string',
+                    arg: 'year',
+                    type: 'number',
                     required: true
                 },
                 {
