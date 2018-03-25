@@ -23,6 +23,7 @@ exports.normalize = function( str ) {
 	str = str.replace( /,/g, '');			// remove any commas
 	str = str.replace( /\./g, '');		// remove any periods
 	str = str.replace( /\&/g, '');		// remove any ampersands
+	str = str.replace( /\@/g, '');		// remove @ sign
 	str = str.replace( /-/g, '_');		// replace hyphens with underscores
 	str = str.replace( /\s/g, '_');		// replace spaces with underscores
 	str = str.replace(/__+/g, '_');		// remove extra underscores
