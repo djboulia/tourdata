@@ -280,7 +280,7 @@ var getRoundNetValues = function(round, courses) {
       var hole_number = (i + 1).toString();
       var par = course.holes[hole_number].par;
 
-      var net = ScoreCard.formatNetScore(parseInt(score) - parseInt(par));
+      var net = ScoreCard.isNumber(score) ? ScoreCard.formatNetScore(parseInt(score) - parseInt(par)) : "";
 
       net_values.push(net);
     }
