@@ -126,3 +126,27 @@ exports.fuzzyMatch = function (name1, name2) {
 
     return (result > 0) ? result : -1;
 };
+
+//
+// normalize golf channel name format to our standard
+//
+exports.formatGolfChannelName = function (name) {
+
+    // if players started on back nine, they will have an asterisk at the
+    // end of their name.  remove that
+    var ndx = name.indexOf("*");
+
+    if (ndx>=0) {
+        name = name.substr(0, ndx);
+    }
+
+    var amateurTag = " (a)";
+
+    if (name.endsWith(amateurTag)) {
+        name = name.substr(0, name.length-amateurTag.length);
+        console.log("trimmed amateur tag from " + name);
+    }
+
+    // golf channel puts them in last, first.  we want it to be [first] [last]
+    return exports.reverseName(name).trim();
+};

@@ -11,23 +11,6 @@ var GameUtils = require('./utils/gameutils.js');
 var Logger = require('../logger.js');
 var logger = new Logger(true);
 
-//
-// normalize golf channel name format to our standard
-//
-var formatName = function (name) {
-
-    // if players started on back nine, they will have an asterisk at the
-    // end of their name.  remove that
-    var ndx = name.indexOf("*");
-
-    if (ndx>=0) {
-        name = name.substr(0, ndx);
-    }
-
-    // golf channel puts them in last, first.  we want it to be [first] [last]
-    return NameUtils.reverseName(name).trim();
-};
-
 var fixEmptyRoundScore = function (round, score, pos) {
     if (score == "") {
         if (pos == 'WD') {
@@ -166,8 +149,9 @@ var PlayerData = function (data) {
     this.normalize = function (eventInfo) {
 
         // this is where we fix up any anomalies from the input data
-        data.name = formatName(data.name);
-        
+        data.name = NameUtils.formatGolfChannelName(data.name);
+        data.id = NameUtils.normalize(data.name);
+
         // golfchannel site puts an "F" in the thru column when a round is finished
         // vs. other sites that indicate 18 when a round is finished.  We normalize
         // all F entries to 18 so that the thru field can always be treated as an integer
@@ -179,19 +163,19 @@ var PlayerData = function (data) {
         for (var i = 1; i <= 4; i++) {
             data[i] = fixEmptyRoundScore(i, data[i], data.pos);
         }
-        
-        // if there is a tee time field, it means the player's round hasn't 
-        // started for the day.  our policy is to put the tee time in the 
+
+        // if there is a tee time field, it means the player's round hasn't
+        // started for the day.  our policy is to put the tee time in the
         // appropriate round field.  So if a player has a 12:20PM tee time
         // for the start of round 2, it would look like this:
-        // 
+        //
         // { ..., 1 : 68, 2 : "12:20PM", 3: "-", 4: "-" }
         //
         // we pick the round based on the first '-' we find
         if (data.time) {
             for (var i = 1; i <= 4; i++) {
                 if (data[i] == '-') {
-                    
+
                     data[i] = data.time;
                     delete data.time;
 
