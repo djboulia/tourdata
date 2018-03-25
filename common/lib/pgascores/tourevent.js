@@ -14,150 +14,152 @@ var request = require('request');
 var cheerio = require('cheerio');
 var esprima = require('esprima');
 
+var NameUtils = require('./utils/nameutils.js');
 var PlayerData = require('./playerdata.js');
 var Parser = require('./utils/htmlparser.js');
+var ScoreCard = require('../utils/scorecard.js');
 
 //
 // expects a string in Month dd-dd, yyyy
 // or Month dd-Month dd, yyyy format
 //
-var parseDateRange = function (str) {
-    console.log("parseDateRange: " + str);
+var parseDateRange = function(str) {
+  console.log("parseDateRange: " + str);
 
-    var dateparts = str.split('-');
-    var startdate = dateparts[0];
-    var startdateparts = startdate.split(' ');
-    var startmonth = startdateparts[0];
-    var startday = startdateparts[1];
+  var dateparts = str.split('-');
+  var startdate = dateparts[0];
+  var startdateparts = startdate.split(' ');
+  var startmonth = startdateparts[0];
+  var startday = startdateparts[1];
 
-    var enddate = dateparts[1];
-    var enddateparts = enddate.split(',');
+  var enddate = dateparts[1];
+  var enddateparts = enddate.split(',');
 
-    var endmonth = startmonth;
-    var endday = enddateparts[0];
+  var endmonth = startmonth;
+  var endday = enddateparts[0];
 
-    if (isNaN(parseInt(endday))) {
-        var parts = endday.split(' ');
+  if (isNaN(parseInt(endday))) {
+    var parts = endday.split(' ');
 
-        // end month is in the result, parse that
-        endmonth = parts[0];
-        endday = parts[1];
-    }
+    // end month is in the result, parse that
+    endmonth = parts[0];
+    endday = parts[1];
+  }
 
-    var year = enddateparts[1];
+  var year = enddateparts[1];
 
-    console.log('start: ' + startmonth + ' ' + startday + ',' + year);
-    console.log('end: ' + endmonth + ' ' + endday + ',' + year);
+  console.log('start: ' + startmonth + ' ' + startday + ',' + year);
+  console.log('end: ' + endmonth + ' ' + endday + ',' + year);
 
-    return {
-        start: new Date(startmonth + ' ' + startday + ',' + year),
-        end: new Date(endmonth + ' ' + endday + ',' + year),
-    };
+  return {
+    start: new Date(startmonth + ' ' + startday + ',' + year),
+    end: new Date(endmonth + ' ' + endday + ',' + year),
+  };
 };
 
-var getEventDetails = function ($) {
-    //
-    // labels for the fields we want to keep
-    //
-    var fields = [
-        "name",
-        "par",
-        "yardage",
-        "purse"
-    ];
+var getEventDetails = function($) {
+  //
+  // labels for the fields we want to keep
+  //
+  var fields = [
+    "name",
+    "par",
+    "yardage",
+    "purse"
+  ];
 
-    // get table data
-    var eventDetails = $('div.currentTourHeadingTitle');
+  // get table data
+  var eventDetails = $('div.currentTourHeadingTitle');
 
-    if (eventDetails == undefined) {
-        console.log("Couldn't find event details!");
-        return null;
+  if (eventDetails == undefined) {
+    console.log("Couldn't find event details!");
+    return null;
+  }
+
+  var eventName = Parser.text($('h1', eventDetails));
+  var details = $('div#tourteaser', eventDetails);
+  var courseDetails = details; // $('div#infoBar', details);
+  var eventDate = Parser.text($('h4', details));
+  var dateRange = parseDateRange(eventDate);
+
+  var ndx = 0;
+  var courseInfo = {};
+
+  $('span', courseDetails).each(function(i, span) {
+    var key = null;
+
+    if (ndx < fields.length) {
+      key = fields[ndx];
     }
 
-    var eventName = Parser.text($('h1', eventDetails));
-    var details = $('div#tourteaser', eventDetails);
-    var courseDetails = details; // $('div#infoBar', details);
-    var eventDate = Parser.text($('h4', details));
-    var dateRange = parseDateRange(eventDate);
+    if (key) {
 
-    var ndx = 0;
-    var courseInfo = {};
+      switch (key) {
+        case 'par':
+        case 'yardage':
+        case 'purse':
+          //
+          // expect these fields to contain Title:<sp>Data
+          //
+          var words = Parser.words($(this));
 
-    $('span', courseDetails).each(function (i, span) {
-        var key = null;
+          courseInfo[key] = words[1]; // only take the data portion
 
-        if (ndx < fields.length) {
-            key = fields[ndx];
-        }
+          break;
 
-        if (key) {
+        default:
+          courseInfo[key] = Parser.text($(this));
+      }
+    }
 
-            switch (key) {
-            case 'par':
-            case 'yardage':
-            case 'purse':
-                //
-                // expect these fields to contain Title:<sp>Data
-                //
-                var words = Parser.words($(this));
+    ndx++;
+  });
 
-                courseInfo[key] = words[1]; // only take the data portion
+  var purse = courseInfo['purse'];
+  courseInfo['purse'] = undefined;
 
-                break;
-
-            default:
-                courseInfo[key] = Parser.text($(this));
-            }
-        }
-
-        ndx++;
-    });
-
-    var purse = courseInfo['purse'];
-    courseInfo['purse'] = undefined;
-
-    return {
-        name: eventName,
-        start: dateRange.start,
-        end: dateRange.end,
-        purse: purse,
-        course: courseInfo
-    };
+  return {
+    name: eventName,
+    start: dateRange.start,
+    end: dateRange.end,
+    purse: purse,
+    course: courseInfo
+  };
 };
 
 //
 // labels for the fields we want to keep
 //
 var fieldsComplete = [
-    null, // 0: don't keep this field, which has no data
-    "pos", // 1: position on the leaderboard
-    null, // 2: don't keep this field, which has movement up/down the rankings (not interesting)
-    "name", // 3: player name
-    "total",
-    "thru",
-    "today",
-    "1", // 7-10: scores for each round
-    "2",
-    "3",
-    "4",
-    "strokes" // 11: total number of strokes
+  null, // 0: don't keep this field, which has no data
+  "pos", // 1: position on the leaderboard
+  null, // 2: don't keep this field, which has movement up/down the rankings (not interesting)
+  "name", // 3: player name
+  "total",
+  "thru",
+  "today",
+  "1", // 7-10: scores for each round
+  "2",
+  "3",
+  "4",
+  "strokes" // 11: total number of strokes
 ];
 
 //
 // labels for the fields we want to keep
 //
 var fieldsInProgress = [
-    null, // 0: don't keep this field, which has no data
-    "pos", // 1: position on the leaderboard
-    null, // 2: don't keep this field, which has movement up/down the rankings (not interesting)
-    "name", // 3: player name
-    "total",
-    "time", // 5: tee time
-    "1", // 7-10: scores for each round
-    "2",
-    "3",
-    "4",
-    "strokes" // 10: total number of strokes
+  null, // 0: don't keep this field, which has no data
+  "pos", // 1: position on the leaderboard
+  null, // 2: don't keep this field, which has movement up/down the rankings (not interesting)
+  "name", // 3: player name
+  "total",
+  "time", // 5: tee time
+  "1", // 7-10: scores for each round
+  "2",
+  "3",
+  "4",
+  "strokes" // 10: total number of strokes
 ];
 
 //
@@ -166,37 +168,37 @@ var fieldsInProgress = [
 // a table showing starting tee time to one where the player's current round
 // progress is displayed
 //
-var getFields = function(cells){
+var getFields = function(cells) {
 
-    var fields = null;
+  var fields = null;
 
-    if (cells.length == 11) {
-        console.log("cells.length == 11, round in progress");
+  if (cells.length == 11) {
+    console.log("cells.length == 11, round in progress");
 
-        fields = fieldsInProgress;
-    } else {
-        fields = fieldsComplete;
-    }
+    fields = fieldsInProgress;
+  } else {
+    fields = fieldsComplete;
+  }
 
-    return fields;
+  return fields;
 };
 
-var getUrl = function (year, tour, event) {
-    return "http://www.golfchannel.com/tours/" + tour + "/" + year + "/" + event;
+var getUrl = function(year, tour, event) {
+  return "http://www.golfchannel.com/tours/" + tour + "/" + year + "/" + event;
 };
 
 //
 // return an array of inline script content from the html page
 //
-var getInlineScripts = function( $ ) {
+var getInlineScripts = function($) {
 
   var scriptTags = $('script').get();
   var length = scriptTags.length;
-  console.log("script tags: " + length );
+  console.log("script tags: " + length);
 
   var scripts = [];
 
-  for (var i=0; i<length; i++) {
+  for (var i = 0; i < length; i++) {
     // scripts can be external <script src="http://foo.bar"></script>
     // or inline <script>var foo=bar;</script>
     // inline scripts are those without a src attribute
@@ -217,35 +219,35 @@ var getInlineScripts = function( $ ) {
 // webpage.  we look for the right inline script and parse the JSON
 // structure to get at the tournament details.
 //
-var parseRoundDetails = function( $ ) {
+var parseRoundDetails = function($) {
 
-  var scripts = getInlineScripts( $ );
+  var scripts = getInlineScripts($);
 
-  for (var i=0; i<scripts.length; i++) {
-      var inline = scripts[i];
+  for (var i = 0; i < scripts.length; i++) {
+    var inline = scripts[i];
 
-      // look for an inline script that has the tournamentJSON
-      // the golf channel puts this in the web page for use by
-      // browser side scripts to show per-round detail of a
-      // tournament. we can parse this info as a JSON structure
-      // to get all of the detailed round stats.
+    // look for an inline script that has the tournamentJSON
+    // the golf channel puts this in the web page for use by
+    // browser side scripts to show per-round detail of a
+    // tournament. we can parse this info as a JSON structure
+    // to get all of the detailed round stats.
 
-      if (inline.includes('tournamentJSON')) {
-        console.log("tournamentJSON found!");
+    if (inline.includes('tournamentJSON')) {
+      console.log("tournamentJSON found!");
 
-        var beginString = "tournamentJSON = ";
-        var endString = ";\n  $('body').data";
+      var beginString = "tournamentJSON = ";
+      var endString = ";\n  $('body').data";
 
-        var start = inline.indexOf(beginString);
-        var end = inline.indexOf(endString);
+      var start = inline.indexOf(beginString);
+      var end = inline.indexOf(endString);
 
-        if (start > 0 && end > 0) {
-          var tournamentJSON = JSON.parse(inline.substring(start+beginString.length,end));
-          console.log("tournament=" + tournamentJSON.title + ", defending champ=" + tournamentJSON.defending_champ);
-          console.log(JSON.stringify(tournamentJSON), null, 2);
+      if (start > 0 && end > 0) {
+        var tournamentJSON = JSON.parse(inline.substring(start + beginString.length, end));
+        console.log("tournament=" + tournamentJSON.title + ", defending champ=" + tournamentJSON.defending_champ);
+        console.log(JSON.stringify(tournamentJSON), null, 2);
 
-          return tournamentJSON;
-        }
+        return tournamentJSON;
+      }
     }
   }
 
@@ -254,74 +256,148 @@ var parseRoundDetails = function( $ ) {
   return null;
 };
 
-exports.getEvent = function (tour, year, event, callback) {
+var findPlayer = function(players, name) {
+  for (var prop in players) {
+    var player = players[prop];
 
-    var url = getUrl(year, tour, event);
+    playerName = NameUtils.formatGolfChannelName(player.name);
 
-    console.log("url : " + url);
+    if (name === playerName) {
+      return player;
+    }
+  }
 
-    request(url, function (error, response, html) {
-        if (!error && response.statusCode == 200) {
+  return null;
+};
 
-            var $ = cheerio.load(html);
+var getRoundNetValues = function(round, courses) {
+  var net_values = [];
+  var course = courses[round.course_id];
+  var round_values = round.round_values;
 
-            var eventInfo = getEventDetails($);
+  if (course) {
+    for (var i = 0; i < round_values.length; i++) {
+      var score = round_values[i];
+      var hole_number = (i + 1).toString();
+      var par = course.holes[hole_number].par;
 
-            if (!eventInfo) {
-                callback(null);
-                return;
-            }
+      var net = ScoreCard.formatNetScore(parseInt(score) - parseInt(par));
 
-            var start = eventInfo.start;
-            var year = start.getFullYear();
+      net_values.push(net);
+    }
+  } else {
+    console.log("ERROR: invalid course id!");
+  }
 
-            // get table data
-            var table = $('table.gc_leaderboard');
-            if (table == undefined) {
-                console.log("Couldn't find event table!");
-                callback(null);
-                return;
-            }
+  return net_values;
+};
 
-            var row = 0;
-            var records = [];
+var addRoundDetails = function(records, players, courses) {
 
-            // process each row in the table
-            $('tr.playerRow', table).each(function (i, tr) {
+  for (var i = 0; i < records.length; i++) {
+    var record = records[i];
 
-                var cells = Parser.cells($, tr);
-                var playerFields = getFields(cells);
-                var record = Parser.mapFields(cells, playerFields);
+    var player = findPlayer(players, record.name);
+    if (!player) {
+      console.log("ERROR: invalid JSON tournament info for " + record.name);
+    } else {
+      var details = {};
 
-                if (record) {
-                    var player = new PlayerData(record);
+      for (var j = 1; j <= 4; j++) {
+        var index = j.toString();
 
-                    player.normalize(eventInfo);
+        if (player.score_cards[index]) {
+          var round_values = player.score_cards[index].round_values;
+          var net_values = getRoundNetValues(player.score_cards[index], courses);
 
-                    // console.log(JSON.stringify(player.data));
-
-                    records.push(player.data);
-
-                    // console.log( "row=" + row + " name=" + record.name);
-                }
-
-                row++;
-            });
-
-            var roundDetails = parseRoundDetails($);
-
-            callback({
-                "name": eventInfo.name,
-                "start": eventInfo.start.toString(),
-                "end": eventInfo.end.toString(),
-                "course": eventInfo.course,
-                "scores": records,
-                "created_at": new Date()
-            });
-        } else {
-          // console.log("Error retrieving page: " + JSON.stringify(response));
-          console.log("Error retrieving page: " + url);
-            callback(null);
+          details[index] = {
+            "round_values": round_values,
+            "net_values": net_values
+          };
         }
-    });
+      }
+
+      record.round_details = details;
+    }
+  }
+};
+
+exports.getEvent = function(tour, year, event, details, callback) {
+
+  var url = getUrl(year, tour, event);
+
+  console.log("url : " + url);
+
+  request(url, function(error, response, html) {
+    if (!error && response.statusCode == 200) {
+
+      var $ = cheerio.load(html);
+
+      var eventInfo = getEventDetails($);
+
+      if (!eventInfo) {
+        callback(null);
+        return;
+      }
+
+      var start = eventInfo.start;
+      var year = start.getFullYear();
+
+      // get table data
+      var table = $('table.gc_leaderboard');
+      if (table == undefined) {
+        console.log("Couldn't find event table!");
+        callback(null);
+        return;
+      }
+
+      var row = 0;
+      var records = [];
+
+      // process each row in the table
+      $('tr.playerRow', table).each(function(i, tr) {
+
+        var cells = Parser.cells($, tr);
+        var playerFields = getFields(cells);
+        var record = Parser.mapFields(cells, playerFields);
+
+        if (record) {
+          var player = new PlayerData(record);
+
+          player.normalize(eventInfo);
+
+          // console.log(JSON.stringify(player.data));
+
+          records.push(player.data);
+
+          // console.log( "row=" + row + " name=" + record.name);
+        }
+
+        row++;
+      });
+
+      if (details) {
+        var roundDetails = parseRoundDetails($);
+
+        // match up per round information with the players in the field
+        var players = roundDetails.scoreboard.players;
+        var courses = roundDetails.courses;
+
+        addRoundDetails(records, players, courses);
+      }
+
+      callback({
+        "name": eventInfo.name,
+        "start": eventInfo.start,
+        "end": eventInfo.end,
+        "course": eventInfo.course,
+        "scores": records,
+        "created_at": new Date()
+      });
+    } else {
+      // console.log("Error retrieving page: " + JSON.stringify(response));
+      console.log("Error retrieving page: " + url);
+      callback(null);
+    }
+  });
 };

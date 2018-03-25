@@ -186,6 +186,8 @@ exports.search = function(tour, year, callback) {
 // the event that matches, then returning the id that the Golf Channel expects
 //
 var findGCEvent = function( tour, year, name, callback ) {
+  var format = null;
+  var major = null;
 
   TourSchedule.getSchedule(getGCTourName(tour), year, function(results) {
     if (results == null) {
@@ -204,11 +206,13 @@ var findGCEvent = function( tour, year, name, callback ) {
           tour = result.tournament.tour;
           year = result.tournament.year;
           id = result.tournament.id;
+          format = tournamentFormat(result.tournament);
+          major = isMajor(result.tournament);
           break;
         }
       }
 
-      callback(tour, year, id);
+      callback(tour, year, id, format, major);
     }
   });
 };
@@ -219,21 +223,26 @@ var findGCEvent = function( tour, year, name, callback ) {
  *	@year 			: year this tournament took place
  *  @tour           : tour name (e.g. pga-tour)
  *  @event          : event name (e.g. us-open)
+ *  @details        : true to include per hole and per round data
  *	@callback 		: will be called back with eventdata as only argument
  *		 			  eventdata : hash of event keys, tournament descriptions
  */
-exports.getEvent = function (tour, year, event, callback) {
+exports.getEvent = function (tour, year, event, details, callback) {
 
-  findGCEvent(tour, year, event, function(tour, year, id) {
+  findGCEvent(tour, year, event, function(tour, year, id, format, major) {
     console.log("getting tour info for " + tour + " " + year + " " + id);
 
-    TourEvent.getEvent(tour, year, id, function (eventdata) {
+    TourEvent.getEvent(tour, year, id, details, function (eventdata) {
         if (eventdata == null) {
 
             console.log("PGA event call failed!");
             callback(null);
 
         } else {
+            console.log("format " + format + " major " + major);
+
+            eventdata.format = format;
+            eventdata.major = major;
 
             callback(eventdata);
         }

@@ -119,13 +119,13 @@ module.exports = function (Tournament) {
     });
 
 
-    Tournament.scores = function (tour, year, event, cb) {
+    Tournament.scores = function (tour, year, event, details, cb) {
 
-        var str = "getting scores for year " + year + " tour " + tour + " event " + event;
+      var str = "getting scores for year " + year + " tour " + tour + " event " + event + " details " + details;
 
         logger.log(str);
 
-        Tournaments.getEvent(tour, year, event, function (results) {
+        Tournaments.getEvent(tour, year, event, details, function (results) {
             logger.debug(JSON.stringify(results));
 
             cb(null, results);
@@ -146,18 +146,30 @@ module.exports = function (Tournament) {
                 {
                     arg: 'tour',
                     type: 'string',
+                    description: 'pga or european',
                     required: true
                 },
                 {
                     arg: 'year',
                     type: 'number',
+                    description: 'golf season this event occurred in',
                     required: true
                 },
                 {
                     arg: 'event',
                     type: 'string',
+                    description: 'unique id for this event',
                     required: true
-                }
+                },
+                {
+                    arg: 'details',
+                    type: 'boolean',
+                    description: 'true to include per hole and per round data',
+                    http: {
+                        source: 'query'
+                    },
+                    required: false
+                },
             ],
             returns: {
                 arg: 'scores',

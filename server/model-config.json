@@ -20,5 +20,9 @@
   "rankings": {
     "dataSource": null,
     "public": true
+  },
+  "game": {
+    "dataSource": null,
+    "public": true
   }
 }
