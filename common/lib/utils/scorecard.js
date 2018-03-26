@@ -40,3 +40,20 @@
     var result = parseInt(str);
     return !isNaN(result);
   };
+
+  exports.parsePosition = function(posString) {
+    // pos is a string which could be the position number
+    // or (in the case of ties) a number with a T in front of it
+    // look for that here
+    var pos = null;
+
+    if (exports.isNumber(posString)) {
+        pos = parseInt(posString);
+    } else if (posString.startsWith('T')){
+      pos = parseInt(posString.substr(1));
+    } else {
+      console.log("ERROR: bad position number");
+    }
+
+    return pos;
+  };

@@ -2,7 +2,15 @@ var Tournaments = require('../pgascores/tournaments.js');
 var ScoreCard = require('../utils/scorecard.js');
 
 var perHoleScoring = function(round_details) {
-  var totalScore = 0;
+  var stats = { dblEaglePlus : 0,
+                eagle : 0,
+                birdie: 0,
+                par: 0,
+                bogie: 0,
+                dblBogie: 0,
+                other: 0,
+                score: 0
+              };
 
   for (var j = 1; j <= 4; j++) {
     var index = j.toString();
@@ -21,29 +29,47 @@ var perHoleScoring = function(round_details) {
       //    worse than double     : -1 pts
 
       for (var hole = 0; hole < net_values.length; hole++) {
+
         var netScore = ScoreCard.parseNetScore(net_values[hole]);
+
         if (netScore < -2) { // dbl eagle or better
-          totalScore += 15;
+          stats.score += 13;
+          stats.dblEaglePlus++;
         } else if (netScore == -2) { // eagle
-          totalScore += 8;
+          stats.score += 8;
+          stats.eagle++;
         } else if (netScore == -1) { // birdie
-          totalScore += 3;
+          stats.score += 3;
+          stats.birdie++;
         } else if (netScore == 0) { // par
-          totalScore += .5;
+          stats.score += .5;
+          stats.par++;
         } else if (netScore == 1) { // bogie
-          totalScore += -.5;
+          stats.score += -.5;
+          stats.bogie++;
+        } else if (netScore == 2) { // double or worse
+          stats.score += -1;
+          stats.dblBogie++;
         } else { // double or worse
-          totalScore += -1;
+          stats.score += -1;
+          stats.other++;
         }
+
       }
     }
   }
 
-  return totalScore;
+  return stats;
 };
 
-var positionScoring = function(pos) {
-  var totalScore = 0;
+var positionScoring = function(posString) {
+
+  var pos = ScoreCard.parsePosition(posString);
+
+  var stats = {
+    pos : pos,
+    score : 0
+  };
 
   // position scoring:
   //    1st : 30 pts
@@ -64,48 +90,61 @@ var positionScoring = function(pos) {
   //    41-50th : 1
 
   if (pos == 1) {
-    totalScore += 30;
+    stats.score += 30;
   } else if (pos == 2) {
-    totalScore += 20;
+    stats.score += 20;
   } else if (pos == 3) {
-    totalScore += 18;
+    stats.score += 18;
   } else if (pos == 4) {
-    totalScore += 16;
+    stats.score += 16;
   } else if (pos == 5) {
-    totalScore += 14;
+    stats.score += 14;
   } else if (pos == 6) {
-    totalScore += 12;
+    stats.score += 12;
   } else if (pos == 7) {
-    totalScore += 10;
+    stats.score += 10;
   } else if (pos == 8) {
-    totalScore += 9;
+    stats.score += 9;
   } else if (pos == 9) {
-    totalScore += 8;
+    stats.score += 8;
   } else if (pos == 10) {
-    totalScore += 7;
+    stats.score += 7;
   } else if (pos >= 11 && pos <= 15) {
-    totalScore += 6;
+    stats.score += 6;
   } else if (pos >= 16 && pos <= 20) {
-    totalScore += 5;
+    stats.score += 5;
   } else if (pos >= 21 && pos <= 25) {
-    totalScore += 4;
+    stats.score += 4;
   } else if (pos >= 26 && pos <= 30) {
-    totalScore += 3;
+    stats.score += 3;
   } else if (pos >= 31 && pos <= 40) {
-    totalScore += 2;
+    stats.score += 2;
   } else if (pos >= 41 && pos <= 50) {
-    totalScore += 1;
+    stats.score += 1;
   }
 
-  return totalScore;
+  return stats;
 };
 
 var streakScoring = function(round_details) {
-  var totalScore = 0;
-  var allRoundsSub70 = true;
+  var stats = {
+    birdieStreaks : 0,
+    bogieFreeRounds : 0,
+    allRoundsSub70 : true,
+    holeInOnes: 0,
+    score: 0,
+  }
 
   for (var j = 1; j <= 4; j++) {
     var index = j.toString();
+
+//  debug
+//    stats.round = {};
+//    stats.round[index] = {};
+//    stats.round[index].birdieStreak = 0;
+//    stats.round[index].net_values = [];
+//    stats.round[index].streak = [];
+//    stats.round[index].hasBirdieStreak = [];
 
     if (round_details[index]) {
       var round_values = round_details[index].round_values;
@@ -113,8 +152,8 @@ var streakScoring = function(round_details) {
 
       var roundTotal = 0;
       var bogieFree = true;
-      var birdieStreak = 0;
-      var longestBirdieStreak = 0;
+      var consecutiveBirdies = 0;
+      var hasBirdieStreak = false;
 
       // streak and bonus scoring:
       //    Streak of 3 birdies or better (one per round) : 3 pts
@@ -126,14 +165,25 @@ var streakScoring = function(round_details) {
         var score = parseInt(round_values[hole])
         var netScore = ScoreCard.parseNetScore(net_values[hole]);
 
+//        stats.round[index].net_values.push(netScore < 0) ;
+
         if (netScore < 0) {
-          birdieStreak++;
-        } else {
-          if (birdieStreak > longestBirdieStreak) {
-            longestBirdieStreak = birdieStreak;
+          consecutiveBirdies++;
+
+          if (consecutiveBirdies >= 3) {
+            hasBirdieStreak = true;
           }
-          birdieStreak = 0; // reset
+
+          // if (consecutiveBirdies > stats.round[index].birdieStreak) {
+          //   stats.round[index].birdieStreak = consecutiveBirdies;
+          // }
+
+        } else {
+          consecutiveBirdies = 0; // reset
         }
+//        stats.round[index].streak.push(consecutiveBirdies) ;
+//        stats.round[index].hasBirdieStreak.push(hasBirdieStreak) ;
+
 
         if (netScore > 0) {
           bogieFree = false;
@@ -143,32 +193,35 @@ var streakScoring = function(round_details) {
 
         if (score == 1 && netScore == -2) {
           console.log("Found a hole in one!");
-          totalScore += 5;
+          stats.holeInOnes++;
+          stats.score += 5;
         }
       }
 
-      if (longestBirdieStreak > 2) {
+      if (hasBirdieStreak) {
         console.log("Found birdie streak!");
-        totalScore += 3;
+        stats.birdieStreaks++;
+        stats.score += 3;
       }
 
       if (bogieFree) {
         console.log("Found bogie free round!");
-        totalScore += 3;
+        stats.bogieFreeRounds++;
+        stats.score += 3;
       }
 
       if (roundTotal >= 70) {
-        allRoundsSub70 = false;
+        stats.allRoundsSub70 = false;
       }
     }
   }
 
-  if (allRoundsSub70) {
+  if (stats.allRoundsSub70) {
     console.log("Found 4 rounds under 70!");
-    totalScore += 5;
+    stats.score += 5;
   }
 
-  return totalScore;
+  return stats;
 };
 
 /**
@@ -196,13 +249,15 @@ exports.getScores = function(tour, year, event, callback) {
         var score = scores[i];
         var score_details = {};
 
-        score_details.hole = perHoleScoring(score.round_details);
-        score_details.position = positionScoring(i + 1);
-        score_details.streak = streakScoring(score.round_details);
+        score_details.holeStats = perHoleScoring(score.round_details);
+        score_details.positionStats = positionScoring(score.pos);
+        score_details.streakStats = streakScoring(score.round_details);
+
         score_details.multiplier = (eventdata.major) ? 2 : 1; // Major tournamnets are 2x
-        score_details.total = (score_details.hole +
-          score_details.position +
-          score_details.streak) * score_details.multiplier;
+
+        score_details.total = (score_details.holeStats.score +
+          score_details.positionStats.score +
+          score_details.streakStats.score) * score_details.multiplier;
 
         score.score_details = score_details;
       }
