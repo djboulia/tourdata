@@ -13,6 +13,9 @@ var cheerio = require('cheerio');
 
 var NameUtils = require('./utils/nameutils.js');
 var Parser = require('./utils/htmlparser.js');
+var CacheModule = require('./utils/cache.js');
+
+var pageCache = new CacheModule.Cache(60 * 60 * 24); // rankings dont change much; keep for 24 hrs
 
 var thisYear = function () {
     return new Date().getFullYear();
@@ -35,7 +38,7 @@ var getUrl = function (year) {
 //
 // only save the fields we care about.  For each position in the row,
 // given the field a meaningful name, or null to ignore the field
-// 
+//
 // for the world rankings, we care about the first field (rank) and the third
 // field (player name)
 //
@@ -45,6 +48,36 @@ var rankingRow = [
     "name" // player name
 ];
 
+var getPage = function(url, cb) {
+  var page = pageCache.get(url);
+
+  // check cache first, return that if we have it already
+  if (page) {
+    process.nextTick(function() {
+      cb(page);
+    });
+  } else {
+    // nope, go to the web and get it
+    request.get(url, (error, response, body) => {
+
+      if (!error && response.statusCode == 200) {
+        page = body;
+
+        // save it in the cache for next time
+        pageCache.put(url, page);
+
+      } else {
+        console.error("Error retrieving page.  Response code: " + response.statusCode);
+        console.error("Error message: " + JSON.stringify(error));
+      }
+
+      cb(page);
+
+    });
+  }
+
+}
+
 /**
  *
  * getPGARankings
@@ -52,8 +85,8 @@ var rankingRow = [
  * returns an array of objects of the form:
  *
  *		[ { "player_id" : "tiger_woods", "rank" : 1, "name" : "Tiger Woods" },
- *		  { "player_id" : "phil_michelson", "rank" : 2, "name" : "Phil Mickelson" }, 
- *         ... 
+ *		  { "player_id" : "phil_michelson", "rank" : 2, "name" : "Phil Mickelson" },
+ *         ...
  *      ];
  *
  **/
@@ -63,10 +96,10 @@ var getPGARankings = function (year, callback) {
 
     console.log("PGA rankings url for year " + year + ": " + url);
 
-    request(url, function (error, response, html) {
+    getPage(url, function (html) {
 
-        if (error || response.statusCode != 200) {
-            console.log("Couldn't find rankings! Error: " + error);
+        if (!html) {
+            console.log("Couldn't find rankings!");
             callback(null);
 
             return;
@@ -99,7 +132,7 @@ var getPGARankings = function (year, callback) {
         // process each row in the table
         $('tr', tbody).each(function (i, tr) {
 
-            var cells = Parser.cells($, tr);                
+            var cells = Parser.cells($, tr);
             var record = Parser.mapFields(cells, rankingRow);
 
             if (record) {

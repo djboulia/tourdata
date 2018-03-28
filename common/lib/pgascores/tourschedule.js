@@ -14,6 +14,9 @@ var request = require('request');
 var cheerio = require('cheerio');
 
 var Parser = require('./utils/htmlparser.js');
+var CacheModule = require('./utils/cache.js');
+
+var pageCache = new CacheModule.Cache(60 * 60 * 24); // tour schedule doesn't change much; keep for 24 hrs
 
 var getUrl = function(tour, year) {
   return "http://www.golfchannel.com/tours/" + tour + "/?t=schedule&year=" + year;
@@ -22,8 +25,8 @@ var getUrl = function(tour, year) {
 //
 // return true if course is contained in courses
 //
-var isDuplicateCourse = function( courses, course ) {
-  for (var i=0; i<courses.length; i++) {
+var isDuplicateCourse = function(courses, course) {
+  for (var i = 0; i < courses.length; i++) {
     console.log("courses[i]=" + courses[i] + ", course=" + course);
 
     if (courses[i] === course) {
@@ -89,10 +92,40 @@ var parseTournamentDetails = function($, el) {
   details.year = parts[5];
   details.id = parts[6];
 
-  console.log(JSON.stringify(details));
+//  console.log(JSON.stringify(details));
 
   return details;
 };
+
+var getPage = function(url, cb) {
+  var page = pageCache.get(url);
+
+  // check cache first, return that if we have it already
+  if (page) {
+    process.nextTick(function() {
+      cb(page);
+    });
+  } else {
+    // nope, go to the web and get it
+    request.get(url, (error, response, body) => {
+
+      if (!error && response.statusCode == 200) {
+        page = body;
+
+        // save it in the cache for next time
+        pageCache.put(url, page);
+
+      } else {
+        console.error("Error retrieving page.  Response code: " + response.statusCode);
+        console.error("Error message: " + JSON.stringify(error));
+      }
+
+      cb(page);
+
+    });
+  }
+
+}
 
 //
 // get tour schedule from Golf Channel
@@ -117,8 +150,8 @@ exports.getSchedule = function(tour, year, callback) {
 
   console.log("url : " + url);
 
-  request(url, function(error, response, html) {
-    if (!error && response.statusCode == 200) {
+  getPage(url, function(html) {
+    if (html) {
 
       var $ = cheerio.load(html);
 
@@ -186,7 +219,7 @@ exports.getSchedule = function(tour, year, callback) {
       callback(records);
     } else {
       //            console.log("Error retrieving page: " + JSON.stringify(response));
-      console.log("Error retrieving page");
+      console.log("Error retrieving page!");
       callback(null);
     }
   });

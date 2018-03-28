@@ -17,6 +17,9 @@ var NameUtils = require('./utils/nameutils.js');
 var PlayerData = require('./playerdata.js');
 var Parser = require('./utils/htmlparser.js');
 var ScoreCard = require('../utils/scorecard.js');
+var CacheModule = require('./utils/cache.js');
+
+var pageCache = new CacheModule.Cache(60 * 10); // cache for ten minutes
 
 //
 // expects a string in Month dd-dd, yyyy
@@ -243,7 +246,7 @@ var parseRoundDetails = function($) {
       if (start > 0 && end > 0) {
         var tournamentJSON = JSON.parse(inline.substring(start + beginString.length, end));
         console.log("tournament=" + tournamentJSON.title + ", defending champ=" + tournamentJSON.defending_champ);
-        console.log(JSON.stringify(tournamentJSON), null, 2);
+//        console.log(JSON.stringify(tournamentJSON), null, 2);
 
         return tournamentJSON;
       }
@@ -321,14 +324,44 @@ var addRoundDetails = function(records, players, courses) {
   }
 };
 
+var getPage = function(url, cb) {
+  var page = pageCache.get(url);
+
+  // check cache first, return that if we have it already
+  if (page) {
+    process.nextTick(function() {
+      cb(page);
+    });
+  } else {
+    // nope, go to the web and get it
+    request.get(url, (error, response, body) => {
+
+      if (!error && response.statusCode == 200) {
+        page = body;
+
+        // save it in the cache for next time
+        pageCache.put(url, page);
+
+      } else {
+        console.error("Error retrieving page.  Response code: " + response.statusCode);
+        console.error("Error message: " + JSON.stringify(error));
+      }
+
+      cb(page);
+
+    });
+  }
+
+}
+
 exports.getEvent = function(tour, year, event, details, callback) {
 
   var url = getUrl(year, tour, event);
 
   console.log("url : " + url);
 
-  request(url, function(error, response, html) {
-    if (!error && response.statusCode == 200) {
+  getPage(url, function(html) {
+    if (html) {
 
       var $ = cheerio.load(html);
 

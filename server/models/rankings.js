@@ -2,7 +2,7 @@ var libPath = '../../common/lib';
 var pgaLibPath = libPath + '/pgascores';
 
 var Logger = require(libPath + '/utils/logger.js');
-logger = new Logger(true);
+logger = new Logger(false);
 
 module.exports = function (Rankings) {
 

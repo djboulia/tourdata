@@ -52,7 +52,8 @@
     } else if (posString.startsWith('T')){
       pos = parseInt(posString.substr(1));
     } else {
-      console.log("ERROR: bad position number");
+      // this could be things like "CUT", "WD", etc.
+      pos = null;
     }
 
     return pos;

@@ -13,7 +13,7 @@ var pgaLibPath = libPath + '/pgascores';
 var Tournaments = require(pgaLibPath + '/tournaments.js')
 
 var Logger = require(libPath + '/utils/logger.js');
-logger = new Logger(true);
+logger = new Logger(false);
 
 
 module.exports = function (Tournament) {
@@ -126,7 +126,7 @@ module.exports = function (Tournament) {
         logger.log(str);
 
         Tournaments.getEvent(tour, year, event, details, function (results) {
-            logger.debug(JSON.stringify(results));
+//            logger.debug(JSON.stringify(results));
 
             cb(null, results);
         });

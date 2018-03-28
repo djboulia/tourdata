@@ -2,7 +2,7 @@ var libPath = '../../common/lib';
 var Fantasy = require(libPath + '/games/fantasy.js')
 
 var Logger = require(libPath + '/utils/logger.js');
-logger = new Logger(true);
+logger = new Logger(false);
 
 
 module.exports = function (Game) {

@@ -6,7 +6,7 @@
  *
  **/
 
-var Cache = function (ttl) {
+exports.Cache = function (ttl) {
     this.ttl = ttl;
     this.cache = {};
 
@@ -45,5 +45,3 @@ var Cache = function (ttl) {
         }
     };
 };
-
-module.exports = Cache;
