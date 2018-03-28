@@ -1,7 +1,7 @@
 var libPath = '../../common/lib';
 var pgaLibPath = libPath + '/pgascores';
 
-var Logger = require(libPath + '/logger.js');
+var Logger = require(libPath + '/utils/logger.js');
 logger = new Logger(true);
 
 module.exports = function (Rankings) {
@@ -10,7 +10,7 @@ module.exports = function (Rankings) {
      * /search
      *
      * rankings/search?year=2016&tour=pga
-     * 
+     *
      * returns the tour events that match the specified search parameters
      *
      **/
@@ -64,7 +64,7 @@ module.exports = function (Rankings) {
     );
 
     /**
-     * 
+     *
      * validate search arguments
      *
      **/

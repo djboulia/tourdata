@@ -8,7 +8,7 @@
 var NameUtils = require('./utils/nameutils.js');
 var GameUtils = require('./utils/gameutils.js');
 
-var Logger = require('../logger.js');
+var Logger = require('../utils/logger.js');
 var logger = new Logger(true);
 
 var fixEmptyRoundScore = function (round, score, pos) {

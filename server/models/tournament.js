@@ -12,7 +12,7 @@ var libPath = '../../common/lib';
 var pgaLibPath = libPath + '/pgascores';
 var Tournaments = require(pgaLibPath + '/tournaments.js')
 
-var Logger = require(libPath + '/logger.js');
+var Logger = require(libPath + '/utils/logger.js');
 logger = new Logger(true);
 
 
