@@ -19,7 +19,12 @@ var CacheModule = require('./utils/cache.js');
 var pageCache = new CacheModule.Cache(60 * 60 * 24); // tour schedule doesn't change much; keep for 24 hrs
 
 var getUrl = function(tour, year) {
-  return "http://www.golfchannel.com/tours/" + tour + "/?t=schedule&year=" + year;
+  // [djb 04/15/2017] the URL for the golf channel now requires that you put in a year and tournament
+  //                  name just to search on other years.  so we just use 2016 and the safeway open
+  //                  the old URL didn't require this:
+  //                  "http://www.golfchannel.com/tours/" + tour + "/?t=schedule&year=" + year;
+
+  return "http://www.golfchannel.com/tours/" + tour + "/2016/safeway-open/?t=schedule&year=" + year;
 };
 
 //
