@@ -246,7 +246,7 @@ var parseRoundDetails = function($) {
       if (start > 0 && end > 0) {
         var tournamentJSON = JSON.parse(inline.substring(start + beginString.length, end));
         console.log("tournament=" + tournamentJSON.title + ", defending champ=" + tournamentJSON.defending_champ);
-//        console.log(JSON.stringify(tournamentJSON), null, 2);
+        console.log(JSON.stringify(tournamentJSON), null, 2);
 
         return tournamentJSON;
       }
@@ -294,6 +294,28 @@ var getRoundNetValues = function(round, courses) {
   return net_values;
 };
 
+var getRoundParValues = function(index, player, courses) {
+  var round = player.score_cards[index];
+  var par_values = [];
+  var course = courses[round.course_id];
+
+  if (course && course.holes) {
+    console.log("found course :" + course.id + " holes " + course.holes.length);
+
+    for (var i = 1; i <= 18; i++) {
+      var hole  = course.holes[i];
+      var par = (hole) ? hole.par : "";
+
+      par_values.push(par);
+    }
+  } else {
+    console.log("ERROR: invalid course id!");
+  }
+
+  return par_values;
+};
+
+
 var addRoundDetails = function(records, players, courses) {
 
   for (var i = 0; i < records.length; i++) {
@@ -311,10 +333,14 @@ var addRoundDetails = function(records, players, courses) {
         if (player.score_cards[index]) {
           var round_values = player.score_cards[index].round_values;
           var net_values = getRoundNetValues(player.score_cards[index], courses);
+          var par_values = getRoundParValues(index, player, courses);
+
+          console.log("par_values " + JSON.stringify(par_values));
 
           details[index] = {
             "round_values": round_values,
-            "net_values": net_values
+            "net_values": net_values,
+            "par_values": par_values
           };
         }
       }
