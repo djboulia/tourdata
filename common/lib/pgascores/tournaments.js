@@ -55,6 +55,45 @@ var isMajor = function(tournament) {
   return major;
 };
 
+//
+// PGA tournament names can change throughout the season if new sponsors are
+// picked up.  For instance, in 2018 the Dean and Deluca Invitational was
+//  renamed to the  Fort Worth Invitational.  Once the Golf Channel makes
+// the change, searches for dean_deluca_invitational will fail.  It's kludgey,
+// but we keep a list of those in-season changes and return the new result
+// when the old name is given.  This keeps compatibility with prior searches.
+//
+// by defaul this function just returns then name given if there are no fixups
+//
+var fixupNames = function(tour, year, name) {
+  var fixups = {
+    "pga": {
+      "2018": {
+        "dean_deluca_invitational": "fort_worth_invitational"
+      }
+    }
+  };
+
+  var newName = name;
+
+  var tourFixup = fixups[tour];
+
+  if (tourFixup) {
+    var yearFixup = tourFixup[year];
+
+    if (yearFixup) {
+      var fixupName = yearFixup[name];
+
+      if (fixupName) {
+        console.log("fixing up " + name + " to be " + newName);
+        newName = fixupName;
+      }
+    }
+  }
+
+  return newName;
+};
+
 var fixupDates = function(records, year) {
   // the PGA and European seasons for a given year actually start in the prior year
   // e.g. 2015 season kicks off with fall events in Oct/Nov of 2014
@@ -147,7 +186,7 @@ exports.search = function(tour, year, callback) {
 
       var records = [];
 
-      for (var i=0; i<results.length; i++) {
+      for (var i = 0; i < results.length; i++) {
         var result = results[i];
         var record = {};
 
@@ -185,7 +224,7 @@ exports.search = function(tour, year, callback) {
 // we do this by looking up the tour schedule from the golf channel, finding
 // the event that matches, then returning the id that the Golf Channel expects
 //
-var findGCEvent = function( tour, year, name, callback ) {
+var findGCEvent = function(tour, year, name, callback) {
   var format = null;
   var major = null;
 
@@ -198,11 +237,13 @@ var findGCEvent = function( tour, year, name, callback ) {
 
       var id = null;
 
-      for (var i=0; i<results.length; i++) {
+      var fixedName = fixupNames(tour, year, name);
+
+      for (var i = 0; i < results.length; i++) {
         var result = results[i];
 
-        if (name === NameUtils.normalize(result.tournament.name)) {
-          console.log("found id " + result.tournament.id + " for name " + name);
+        if (fixedName === NameUtils.normalize(result.tournament.name)) {
+          console.log("found id " + result.tournament.id + " for name " + fixedName);
           tour = result.tournament.tour;
           year = result.tournament.year;
           id = result.tournament.id;
@@ -227,25 +268,25 @@ var findGCEvent = function( tour, year, name, callback ) {
  *	@callback 		: will be called back with eventdata as only argument
  *		 			  eventdata : hash of event keys, tournament descriptions
  */
-exports.getEvent = function (tour, year, event, details, callback) {
+exports.getEvent = function(tour, year, event, details, callback) {
 
   findGCEvent(tour, year, event, function(tour, year, id, format, major) {
     console.log("getting tour info for " + tour + " " + year + " " + id);
 
-    TourEvent.getEvent(tour, year, id, details, function (eventdata) {
-        if (eventdata == null) {
+    TourEvent.getEvent(tour, year, id, details, function(eventdata) {
+      if (eventdata == null) {
 
-            console.log("PGA event call failed!");
-            callback(null);
+        console.log("PGA event call failed!");
+        callback(null);
 
-        } else {
-            console.log("format " + format + " major " + major);
+      } else {
+        console.log("format " + format + " major " + major);
 
-            eventdata.format = format;
-            eventdata.major = major;
+        eventdata.format = format;
+        eventdata.major = major;
 
-            callback(eventdata);
-        }
+        callback(eventdata);
+      }
     });
   });
 

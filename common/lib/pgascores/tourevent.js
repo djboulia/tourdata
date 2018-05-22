@@ -246,7 +246,7 @@ var parseRoundDetails = function($) {
       if (start > 0 && end > 0) {
         var tournamentJSON = JSON.parse(inline.substring(start + beginString.length, end));
         console.log("tournament=" + tournamentJSON.title + ", defending champ=" + tournamentJSON.defending_champ);
-        console.log(JSON.stringify(tournamentJSON), null, 2);
+        //console.log(JSON.stringify(tournamentJSON), null, 2);
 
         return tournamentJSON;
       }

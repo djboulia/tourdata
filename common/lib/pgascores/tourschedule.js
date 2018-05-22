@@ -97,7 +97,7 @@ var parseTournamentDetails = function($, el) {
   details.year = parts[5];
   details.id = parts[6];
 
-//  console.log(JSON.stringify(details));
+  console.log("found course " +  details.name + " and id " + details.id);
 
   return details;
 };
