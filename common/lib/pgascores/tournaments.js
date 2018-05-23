@@ -2,11 +2,6 @@ var NameUtils = require('./utils/nameutils.js');
 var TourEvent = require('./tourevent.js');
 var TourSchedule = require('./tourschedule.js');
 
-var createPath = function(tour, year, tournament) {
-  // build the path to get details about this individual tournament
-  return '/' + year + '/tour/' + tour + '/event/' + NameUtils.normalize(tournament.name);
-};
-
 //
 // look at the tournament details to figure out if this is a stroke play
 // or match play event
@@ -65,14 +60,15 @@ var isMajor = function(tournament) {
 //
 // by defaul this function just returns then name given if there are no fixups
 //
-var fixupNames = function(tour, year, name) {
-  var fixups = {
-    "pga": {
-      "2018": {
-        "dean_deluca_invitational": "fort_worth_invitational"
-      }
+var fixups = {
+  "pga": {
+    "2018": {
+      "dean_deluca_invitational": "fort_worth_invitational"
     }
-  };
+  }
+};
+
+var fixupOldNames = function(tour, year, name) {
 
   var newName = name;
 
@@ -85,9 +81,33 @@ var fixupNames = function(tour, year, name) {
       var fixupName = yearFixup[name];
 
       if (fixupName) {
-        console.log("fixing up " + name + " to be " + newName);
         newName = fixupName;
+        console.log("fixing up " + name + " to be " + newName);
       }
+    }
+  }
+
+  return newName;
+};
+
+var fixupNewNames = function(tour, year, name) {
+
+  var newName = name;
+
+  var tourFixup = fixups[tour];
+
+  if (tourFixup) {
+    var yearFixup = tourFixup[year];
+
+    if (yearFixup) {
+
+      for (var key in yearFixup) {
+        if (yearFixup[key] == name) {
+          newName = key;
+          console.log("fixing up " + name + " to be " + newName);
+        }
+      }
+
     }
   }
 
@@ -153,6 +173,13 @@ var getGCTourName = function(tour) {
   }
 
   return tourname;
+};
+
+var createPath = function(tour, year, tournament) {
+  var name = fixupNewNames(tour, year, NameUtils.normalize(tournament.name));
+
+  // build the path to get details about this individual tournament
+  return '/' + year + '/tour/' + tour + '/event/' + name;
 };
 
 //
@@ -237,7 +264,7 @@ var findGCEvent = function(tour, year, name, callback) {
 
       var id = null;
 
-      var fixedName = fixupNames(tour, year, name);
+      var fixedName = fixupOldNames(tour, year, name);
 
       for (var i = 0; i < results.length; i++) {
         var result = results[i];
