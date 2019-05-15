@@ -10,27 +10,24 @@
  *
  **/
 
-var request = require('request');
-var cheerio = require('cheerio');
+var TourData = require('./tourdata.js');
 
-var Parser = require('./utils/htmlparser.js');
-var CacheModule = require('./utils/cache.js');
+var tourData = new TourData(60 * 60 * 24); // tour schedule doesn't change much; keep for 24 hrs
 
-var pageCache = new CacheModule.Cache(60 * 60 * 24); // tour schedule doesn't change much; keep for 24 hrs
+var isPriorYear = function (year) {
+  var today = new Date();
 
-var getUrl = function(tour, year) {
-  // [djb 04/15/2017] the URL for the golf channel now requires that you put in a year and tournament
-  //                  name just to search on other years.  so we just use 2016 and the safeway open
-  //                  the old URL didn't require this:
-  //                  "http://www.golfchannel.com/tours/" + tour + "/?t=schedule&year=" + year;
+  if (year < today.getFullYear()) {
+    return true;
+  }
 
-  return "http://www.golfchannel.com/tours/" + tour + "/2016/safeway-open/?t=schedule&year=" + year;
-};
+  return false;
+}
 
 //
 // return true if course is contained in courses
 //
-var isDuplicateCourse = function(courses, course) {
+var isDuplicateCourse = function (courses, course) {
   for (var i = 0; i < courses.length; i++) {
     console.log("courses[i]=" + courses[i] + ", course=" + course);
 
@@ -43,34 +40,38 @@ var isDuplicateCourse = function(courses, course) {
   return false;
 };
 
+
 //
-//  some tournaments are held on multiple courses
-//  the web site represents these as follows:
-//  <small>
-//      Course Name 1 <br>
-//      Course Name 2 <br>
-//      ...
-//  </small>
+// debug function to dump the top level parts of the JSON structure
 //
-//  look for the outer tag and parse the contents
-//  into an array of courses
-//
-var parseCourses = function($, el) {
-  var contents = $('small', el).contents();
+var dumpData = function (obj) {
+  for (var key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      console.log(key + " -> " + obj[key]);
+    }
+  }
+}
+
+var getCourses = function (golfClubs) {
   var courses = [];
 
-  for (var i = 0; i < contents.length; i++) {
+  for (var i = 0; i < golfClubs.length; i++) {
 
     //        console.log("found text " + contents.eq(i).text() +
     //                    " with tagName " + contents.get(i).tagName);
 
-    var course = Parser.text($(contents.get(i)));
+    var golfCourses = golfClubs[i].courses;
 
-    // sometimes the golf channel site will list the same course name twice.
-    // check for that and don't bother to add when that's the case
-    if (course && !isDuplicateCourse(courses, course)) {
-      courses.push(course);
+    for (var j = 0; j < golfCourses.length; j++) {
+      var course = golfCourses[j].name;
+
+      // sometimes the golf channel site will list the same course name twice.
+      // check for that and don't bother to add when that's the case
+      if (course && !isDuplicateCourse(courses, course)) {
+        courses.push(course);
+      }
     }
+
   }
 
   return courses;
@@ -79,153 +80,177 @@ var parseCourses = function($, el) {
 //
 //  chop up the web elements to gather details about the tournament
 //
-var parseTournamentDetails = function($, el) {
+var getTournamentDetails = function (tour, year, event) {
   var details = {};
 
-  var tournamentName = $('p', el);
-  details.name = Parser.text($(tournamentName));
+  details.name = event.name;
 
-  var tournamentUrl = $('a', tournamentName);
-  details.url = tournamentUrl.attr('href');
+  var leaderboard = event.leaderboard;
+  details.url = "/tournament/" + leaderboard.eventKey;
 
-  details.courses = parseCourses($, el);
+  details.courses = getCourses(event.golfClubs);
 
   // get tour and tournament name identifiers from the url
   var parts = details.url.split('/');
 
-  details.tour = parts[4];
-  details.year = parts[5];
-  details.id = parts[6];
+  details.tour = tour;
+  details.year = year;
+  details.id = leaderboard.eventKey;
 
-  console.log("found course " +  details.name + " and id " + details.id);
+  console.log("found course " + details.name + " and id " + details.id);
 
   return details;
 };
 
-var getPage = function(url, cb) {
-  var page = pageCache.get(url);
+//
+// sort the schedule by date and tournament id
+// it's important the order stays the same since the order of
+// this list determines the id used to retrieve the
+// details of each individual tournament
+//
+var scheduleSort = function (a, b) {
+  var aDate = new Date(a.startDate).getTime();
+  var bDate = new Date(b.startDate).getTime();
 
-  // check cache first, return that if we have it already
-  if (page) {
-    process.nextTick(function() {
-      cb(page);
-    });
+  if (aDate < bDate) {
+    return -1;
+  } else if (aDate > bDate) {
+    return 1;
   } else {
-    // nope, go to the web and get it
-    request.get(url, (error, response, body) => {
+    var aId = a.tournament.id;
+    var bId = b.tournament.id;
 
-      if (!error && response.statusCode == 200) {
-        page = body;
+    if (aId < bId) {
+      return -1;
+    } else if (aId > bId) {
+      return 1;
+    } else {
+      return 0;
+    }
+  }
+};
 
-        // save it in the cache for next time
-        pageCache.put(url, page);
+var TourSchedule = function (tour, year) {
 
-      } else {
-        console.error("Error retrieving page.  Response code: " + response.statusCode);
-        console.error("Error message: " + JSON.stringify(error));
-      }
+  this.getUrl = function () {
+    // [djb 04/15/2017] the URL for the golf channel now requires that you put in a year and tournament
+    //                  name just to search on other years.  so we just use 2016 and the safeway open
+    //                  the old URL didn't require this:
+    //                  "http://www.golfchannel.com/tours/" + tour + "/?t=schedule&year=" + year;
+    //
+    // [djb 04/23/2019] changed URL again. :-(  Previously was this:
+    //                  return "http://www.golfchannel.com/tours/" + tour + "/2016/safeway-open/?t=schedule&year=" + year;
+    //
 
-      cb(page);
-
-    });
+    return "https://www.golfchannel.com/tours/" + tour + "/" + year + "/schedule";
   }
 
-}
+  this.getId = function () {
+    // create a unique id we can use for caching and for 
+    // searching the archives
 
-//
-// get tour schedule from Golf Channel
-//
-// tour: the name of the tour, e.g. pga-tour or european_tour
-// year: year to search
-// callback: function called when complete
-//
-exports.getSchedule = function(tour, year, callback) {
+    var id = year + "-" + tour + "-schedule";
+    return id;
+  }
 
-  //
-  // labels for the fields we want to keep
-  //
-  var fields = [
-    "date", // 0: start and end dates for the tournament
-    "tournament", // 1: tournament name, link to details, course name
-    "purse", // 2: purse for winner
-    "winner" // 3: winning player name
-  ];
+  this.normalize = function (tournament_data) {
+    // the tournament_data object holds a bunch of information, but
+    // for scheduling purposes, we care about this:
+    //
+    // tournament_data {
+    //   tourEvents : [
+    //     {
+    //       startDate: "",
+    //       endDate: "",
+    //       purse: "",
+    //       winner: "",
+    //       name: "",
+    //       leaderboard: {
+    //         eventKey: "",
+    //         golfClubs: [
+    //           {
+    //             name: "",
+    //             courses: [
+    //               { 
+    //                 name: ""
+    //             }
+    //             ]
+    //           }
+    //
+    //         ]
+    //       }
+    //     }
+    //   ]
+    // }
 
-  var url = getUrl(tour, year);
+    if (!tournament_data) {
+      return null;
+    }
 
-  console.log("url : " + url);
+    // dumpData(tournament_data);
 
-  getPage(url, function(html) {
-    if (html) {
+    var tourEvents = tournament_data.tourEvents;
 
-      var $ = cheerio.load(html);
+    var records = [];
 
-      // get table data
-      var table = $('table#tourSchedule');
-      if (table == undefined) {
-        console.log("Couldn't find schedule table!");
-        callback(null);
-        return;
+    for (var i = 0; i < tourEvents.length; i++) {
+      var event = tourEvents[i];
+      var record = {};
+
+      // console.log(JSON.stringify(event));
+
+      record.startDate = event.startDate;
+      record.endDate = event.endDate;
+      record.tournament = getTournamentDetails(tour, year, event);
+      record.purse = event.purse;
+      record.winner = event.winnerName;
+
+      console.log(JSON.stringify(record));
+
+      if (record.tournament.name.endsWith('- Amateurs')) {
+        // for some reason, a separate entry for the Amateur results 
+        // from the ATT Pebble Beach Pro-Am are included in the tournament 
+        // season results. filter that out in the results sent back.
+
+        console.log("Ignoring Amateur tournament result: " + JSON.stringify(record));
+      } else {
+        // return all non Amateur records
+
+        records.push(record);
       }
 
-      var row = 0;
-      var records = [];
+    }
 
-      // process each row in the table
-      $('tr.scheduleRow', table).each(function(i, tr) {
-        var record = {};
-        var td = $('td', tr);
+    records.sort(scheduleSort);
 
-        if (td.each != undefined) {
-          var ndx = 0;
+    return records;
+  };
 
-          td.each(function(i, el) {
-            var key = "";
+  this.get = function (callback) {
 
-            if (ndx < fields.length) {
-              key = fields[ndx];
-            }
+    var self = this;
 
-            if (key == 'tournament') {
-              // tournament needs to be parsed into tournament name, url, course
-              var tournament = parseTournamentDetails($, this);
+    //
+    // get tour schedule from Golf Channel
+    //
+    // tour: the name of the tour, e.g. pga-tour or european_tour
+    // year: year to search
+    // callback: function called when complete
+    //
 
-              record.tournament = tournament;
+    if (isPriorYear(year)) {
+      console.log("API only works for current tour year");
+      callback(null);
+      return;
+    }
 
-            } else if (key == 'date') {
-              // parse into start and end dates
-              var start = $('p.scheduleDateStart', this);
-              var end = $('p.scheduleDateEnd', this);
+    tourData.getSchedule(self, function (tournament_data) {
 
-              // remove embedded white space to get month, day
-              var startDate = Parser.text($(start));
-              record.startDate = startDate;
-
-              // remove embedded white space to get month, day
-              var endDate = Parser.text($(end));
-              record.endDate = endDate;
-
-            } else if (key != "") {
-              // replace whitespace with spaces to resolve encoding issues
-              record[key] = Parser.text($(this));
-            }
-
-            ndx++;
-          });
-
-          //console.log(JSON.stringify(record));
-
-          records.push(record);
-        }
-
-        row++;
-      });
+      var records = self.normalize(tournament_data);
 
       callback(records);
-    } else {
-      //            console.log("Error retrieving page: " + JSON.stringify(response));
-      console.log("Error retrieving page!");
-      callback(null);
-    }
-  });
-};
+    });
+  };
+}
+
+module.exports = TourSchedule;

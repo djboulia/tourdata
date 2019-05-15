@@ -1,9 +1,14 @@
 var loopback = require('loopback');
 var boot = require('loopback-boot');
 
+var archive = require('../common/lib/pgascores/archivejob.js');;
+
 var app = module.exports = loopback();
 
 app.start = function () {
+    // try to archive first
+    archive.run();
+
     // start the web server
     return app.listen(function () {
         app.emit('started');
