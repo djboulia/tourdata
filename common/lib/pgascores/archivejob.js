@@ -6,6 +6,8 @@
 // from time to time)
 //
 
+var CronJob = require('cron').CronJob;
+
 var Storage = require('./utils/storage.js');
 var GolfChannelPage = require('./golfchannelpage.js');
 var TourSchedule = require('./tourschedule.js');
@@ -93,13 +95,16 @@ var archiveSeason = function (tourSchedule, tournament_data) {
     });
 }
 
-exports.run = function () {
+var archive = function () {
     var tour = 'pga-tour';
     var year = 2019;
 
     // attempt to get the schedule from the archive
     var tourSchedule = new TourSchedule(tour, year);
     var id = tourSchedule.getId();
+
+    var now = new Date();
+    console.log("Beginning archive at " + now.toString());
 
     cos.exists(id)
         .then((result) => {
@@ -141,5 +146,38 @@ exports.run = function () {
         .catch((e) => {
             console.log("Error!");
         });
+
+};
+
+exports.run = function () {
+    // run once at the start
+    archive();
+
+    // create a cron job to run the archiver weekly
+    // we pick every tuesday at 8am since that will
+    // likely be between PGA tour events which typically
+    // run from Thu-Sun
+    //
+    // cron fields are as follows:
+    //      Seconds: 0-59
+    //      Minutes: 0-59
+    //      Hours: 0-23
+    //      Day of Month: 1-31
+    //      Months: 0-11 (Jan-Dec)
+    //      Day of Week: 0-6 (Sun-Sat)
+
+    var croninterval = '0 0 8 * * 2';
+
+    var job = new CronJob(
+        croninterval,
+        archive, // run this job at the specified interval
+        function () {
+            /* This function is executed when the job stops */
+        },
+        true, /* Start the job right now */
+        'America/New_York' /* Time zone of this job. */
+    );
+
+    job.start();
 
 };
