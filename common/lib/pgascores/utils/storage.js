@@ -4,16 +4,25 @@
 
 // store the data in IBM Cloud Object Storage - an AWS S3 equivalent
 var COS = require('ibm-cos-sdk');
+var Config = require('./config.js');
 
-var config = {
-    endpoint: 's3.us-east.cloud-object-storage.appdomain.cloud',
-    apiKeyId: 'W4P-trxAlrr-Wr8Hug_VvvMziJnJQLxtn664l6-aNyJh',
-    ibmAuthEndpoint: 'https://iam.ng.bluemix.net/oidc/token',
-    serviceInstanceId: 'crn:v1:bluemix:public:cloud-object-storage:global:a/dc08b123363344cdb63b5c8e27bd39f4:cd33a2f5-1e70-48a9-806d-82946bab4aa6::',
+
+var getStorageConfig = function () {
+    var config = new Config();
+    var storageConfig = config.get('storageConfig');
+
+    if (!storageConfig) {
+        console.log("ERROR! no storage configuration found!");
+    } else {
+        console.log("Found storage config: " + storageConfig.serviceInstanceId);
+    }
+
+    return storageConfig;
 };
 
+var cos = new COS.S3(getStorageConfig());
+
 var Storage = function (bucket) {
-    var cos = new COS.S3(config);
 
     // see if the key exists in the bucket
     this.exists = function (key) {
@@ -22,7 +31,7 @@ var Storage = function (bucket) {
 
             return cos.listObjects({
                     Bucket: bucket
-                }, ).promise()
+                }).promise()
                 .then((data) => {
                     var result = false;
 
@@ -86,12 +95,12 @@ var Storage = function (bucket) {
             console.log(`Storing item from bucket: ${bucket}, key: ${key}, ${str.length} bytes`);
 
             return cos.putObject({
-                Bucket: bucket, 
-                Key: key, 
-                Body: str
-            }).promise()
+                    Bucket: bucket,
+                    Key: key,
+                    Body: str
+                }).promise()
                 .then(() => {
-                    resolve(str);   // return the content we actually stored
+                    resolve(str); // return the content we actually stored
                 })
                 .catch((e) => {
                     console.error(`ERROR: ${e.code} - ${e.message}\n`);
