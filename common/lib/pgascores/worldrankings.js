@@ -1,15 +1,15 @@
 /**
  *
- *	Get the world rankings from the PGA tour site.  
+ *	Get the world rankings from the PGA tour site
+ *  Uses cache and archive when available 
  *
  **/
 
 var request = require('request');
 
-var NameUtils = require('./utils/nameutils.js');
 var CacheModule = require('./utils/cache.js');
-var TableScraper = require('./utils/tablescraper.js');
 var PGAWorldRankingsArchive = require('./worldrankingsarchive.js');
+var PGATourRankingsPage = require('./pgatourrankingspage.js');
 
 var pageCache = new CacheModule.Cache(60 * 60 * 24); // rankings don't change much; keep for 24 hrs
 var pgaArchive = new PGAWorldRankingsArchive(60 * 60 * 24 * 30); // archive data is stable; keep for 30 days
@@ -18,79 +18,33 @@ var thisYear = function () {
     return new Date().getFullYear();
 };
 
-var getUrl = function (year) {
-    var url = "http://www.pgatour.com/stats/stat.186";
-
-    if (year == thisYear()) {
-        url = url + ".html";
-    } else {
-        // prior years are at a url of the form http://www.pgatour.com/stats/stat.186.YYYY.html
-        url = url + "." + year.toString() + ".html";
-    }
-
-    return url;
-};
-
-var RankingsScraper = function (html) {
-
-    var tableId = 'table#statsTable'; // table we will look for in the html
-    var fieldMap = ["rank", "", "name"]; // columns we care about
-    var tableScraper = new TableScraper(html);
-
-    this.init = function () {
-        return tableScraper.init(tableId);
-    };
-
-    this.scrape = function () {
-        var records = tableScraper.scrape(fieldMap, (record) => {
-            // validate the name field and turn it into a unique player_id 
-            if (record.name) {
-                record.player_id = NameUtils.normalize(record.name);
-            } else {
-                console.log("found invalid record = " + JSON.stringify(record));
-                return null; // don't include in the result
-            }
-
-            return record;
-        });
-
-        //
-        //  returns an array of objects of the form:
-        //  		[ { "player_id" : "tiger_woods", "rank" : 1, "name" : "Tiger Woods" },
-        //  		  { "player_id" : "phil_michelson", "rank" : 2, "name" : "Phil Mickelson" }, ... ];
-        //
-        return records;
-    };
-};
-
-var getPage = function (url, cb) {
-    var page = pageCache.get(url);
+var getPageWithCache = function (page, cb) {
+    var url = page.getUrl();
+    var html = pageCache.get(url);
 
     // check cache first, return that if we have it already
-    if (page) {
+    if (html) {
         process.nextTick(function () {
-            cb(page);
+            cb(html);
         });
     } else {
         // nope, go to the web and get it
         request.get(url, (error, response, body) => {
 
             if (!error && response.statusCode == 200) {
-                page = body;
+                html = body;
 
                 // save it in the cache for next time
-                pageCache.put(url, page);
+                pageCache.put(url, html);
 
             } else {
                 console.error("Error retrieving page.  Response code: " + response.statusCode);
                 console.error("Error message: " + JSON.stringify(error));
             }
 
-            cb(page);
-
+            cb(html);
         });
     }
-
 }
 
 /**
@@ -105,23 +59,17 @@ var getPage = function (url, cb) {
  *      ];
  *
  **/
-var getPGARankings = function (year, callback) {
-
-    var url = getUrl(year);
+var getPGARankings = function (tour, year, callback) {
 
     if (year >= thisYear()) {
+        var page = new PGATourRankingsPage(tour, year);
+        var url = page.getUrl();
+
         console.log("PGA rankings url for year " + year + ": " + url);
 
-        getPage(url, function (html) {
+        getPageWithCache(page, function (html) {
 
-            var scraper = new RankingsScraper(html);
-
-            if (!scraper.init()) {
-                callback(null);
-                return;
-            }
-
-            var records = scraper.scrape();
+            var records = page.parse(html);
 
             callback(records);
         });
@@ -149,12 +97,11 @@ exports.getRankings = function (tour, year, callback) {
         console.log("Error: this API currently only supports PGA rankings.")
 
         callback(null);
-
     } else {
 
         console.log("getting world rankings for tour " + tour + " and year " + year);
 
-        getPGARankings(year, function (eventdata) {
+        getPGARankings("pga-tour", year, function (eventdata) {
             if (eventdata == null) {
 
                 console.log("PGA Tour call failed!");
