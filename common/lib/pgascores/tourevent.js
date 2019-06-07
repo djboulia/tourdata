@@ -11,9 +11,10 @@
  **/
 
 var PlayerData = require('./playerdata.js');
-var TourData = require('./tourdata.js');
+var TourDataProvider = require('./tourdataprovider.js');
+var Config = require('./utils/config.js');
 
-var tourData = new TourData(60 * 10); // cache for ten minutes
+var config = new Config();
 
 var getEventDetails = function (event) {
 
@@ -82,7 +83,7 @@ var TourEvent = function (tour, year, gcid, eventid) {
     // create a unique id we can use for caching and for 
     // searching the archives
 
-    var id = year + "-" + tour + "-schedule-event-" + eventid;
+    var id = config.archive.getTourEventId(year, tour, eventid);
     return id;
   }
 
@@ -134,18 +135,28 @@ var TourEvent = function (tour, year, gcid, eventid) {
     return eventData;
   };
 
-  this.get = function (includeDetails, callback) {
+  this.get = function (details, callback) {
 
     var self = this;
 
-    tourData.getEvent(self, function (tournament_data) {
+    //
+    // get tour schedule from our back end data source
 
-      var result = self.normalize(includeDetails, tournament_data);
+    var provider = new TourDataProvider(year);
 
-      callback(result);
+    provider.get(self, function (records) {
+
+      if (provider.isGolfChannel()) {
+        // need to post process golf channel data before
+        // returning it
+        records = self.normalize(details, records);
+      }
+
+      callback(records);
     });
 
   };
+
 }
 
 

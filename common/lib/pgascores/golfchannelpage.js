@@ -52,6 +52,9 @@ var getTournamentData = function ($) {
 
 var processPage = function (page, cb) {
     if (page) {
+        //
+        // parse the html to get at the tournament data
+        //
         var $ = cheerio.load(page);
 
         var tournament_data = getTournamentData($);
@@ -74,7 +77,6 @@ var GolfChannelPage = function () {
     this.get = function (url, cb) {
         var page = null;
 
-        // nope, go to the web and get it
         request.get(url, (error, response, body) => {
 
             if (error || response.statusCode != 200) {

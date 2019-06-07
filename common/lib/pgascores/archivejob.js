@@ -9,11 +9,13 @@
 var CronJob = require('cron').CronJob;
 
 var Storage = require('./utils/storage.js');
+var Config = require('./utils/config.js');
 var GolfChannelPage = require('./golfchannelpage.js');
 var TourSchedule = require('./tourschedule.js');
 var TourEvent = require('./tourevent.js');
 
-var cos = new Storage('tourdata-gc-pga');
+var config = new Config();
+var cos = new Storage(config.archive.getGolfChannelBucket());
 var page = new GolfChannelPage();
 
 var isTournamentComplete = function (tourStop) {

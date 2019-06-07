@@ -10,19 +10,10 @@
  *
  **/
 
-var TourData = require('./tourdata.js');
+var TourDataProvider = require('./tourdataprovider.js');
+var Config = require('./utils/config.js');
 
-var tourData = new TourData(60 * 60 * 24); // tour schedule doesn't change much; keep for 24 hrs
-
-var isPriorYear = function (year) {
-  var today = new Date();
-
-  if (year < today.getFullYear()) {
-    return true;
-  }
-
-  return false;
-}
+var config = new Config();
 
 //
 // return true if course is contained in courses
@@ -149,7 +140,7 @@ var TourSchedule = function (tour, year) {
     // create a unique id we can use for caching and for 
     // searching the archives
 
-    var id = year + "-" + tour + "-schedule";
+    var id = config.archive.getTourScheduleId(year, tour);
     return id;
   }
 
@@ -231,25 +222,23 @@ var TourSchedule = function (tour, year) {
     var self = this;
 
     //
-    // get tour schedule from Golf Channel
-    //
-    // tour: the name of the tour, e.g. pga-tour or european_tour
-    // year: year to search
-    // callback: function called when complete
-    //
+    // get tour schedule from our back end data source
 
-    if (isPriorYear(year)) {
-      console.log("API only works for current tour year");
-      callback(null);
-      return;
-    }
+    var provider = new TourDataProvider(year);
 
-    tourData.getSchedule(self, function (tournament_data) {
+    provider.get(self, function (records) {
 
-      var records = self.normalize(tournament_data);
+      if (provider.isGolfChannel()) {
+        // need to post process golf channel data before
+        // returning it
+        records = self.normalize(records);
+      } else if (provider.isPGATour()) {
+        records = records.season;
+      }
 
       callback(records);
     });
+
   };
 }
 

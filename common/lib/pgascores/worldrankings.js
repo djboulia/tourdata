@@ -9,8 +9,10 @@ var request = require('request');
 var NameUtils = require('./utils/nameutils.js');
 var CacheModule = require('./utils/cache.js');
 var TableScraper = require('./utils/tablescraper.js');
+var PGAWorldRankingsArchive = require('./worldrankingsarchive.js');
 
 var pageCache = new CacheModule.Cache(60 * 60 * 24); // rankings don't change much; keep for 24 hrs
+var pgaArchive = new PGAWorldRankingsArchive(60 * 60 * 24 * 30); // archive data is stable; keep for 30 days
 
 var thisYear = function () {
     return new Date().getFullYear();
@@ -46,7 +48,7 @@ var RankingsScraper = function (html) {
                 record.player_id = NameUtils.normalize(record.name);
             } else {
                 console.log("found invalid record = " + JSON.stringify(record));
-                return null;    // don't include in the result
+                return null; // don't include in the result
             }
 
             return record;
@@ -107,21 +109,26 @@ var getPGARankings = function (year, callback) {
 
     var url = getUrl(year);
 
-    console.log("PGA rankings url for year " + year + ": " + url);
+    if (year >= thisYear()) {
+        console.log("PGA rankings url for year " + year + ": " + url);
 
-    getPage(url, function (html) {
+        getPage(url, function (html) {
 
-        var scraper = new RankingsScraper(html);
+            var scraper = new RankingsScraper(html);
 
-        if (!scraper.init()) {
-            callback(null);
-            return;
-        }
+            if (!scraper.init()) {
+                callback(null);
+                return;
+            }
 
-        var records = scraper.scrape();
+            var records = scraper.scrape();
 
-        callback(records);
-    });
+            callback(records);
+        });
+    } else {
+        console.log("Using PGA rankings *archive* for year " + year);
+        pgaArchive.get(year, callback);
+    }
 }
 
 /**
