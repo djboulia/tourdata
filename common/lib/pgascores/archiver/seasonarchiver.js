@@ -13,11 +13,43 @@ var config = new Config();
 var cos = new Storage(config.archive.getGolfChannelBucket());
 var page = new GolfChannelPage();
 
-var isTournamentComplete = function (tourStop) {
+//
+// compare just the year/month/day and return true if the date
+// is the current date or earlier
+//
+var inThePast = function( date ) {
     var now = new Date();
+
+    if (date.getFullYear() < now.getFullYear()) {
+        return true;
+    } else if (date.getFullYear() > now.getFullYear()) {
+        return false;
+    }
+
+    if (date.getMonth() < now.getMonth()) {
+        return true;
+    } else if (date.getMonth() > now.getMonth()) {
+        return false;
+    }
+
+    if (date.getDate() < now.getDate()) {
+        return true;
+    } else if (date.getDate() > now.getDate()) {
+        return false;
+    }
+    
+    // date is today if we get here... we do NOT consider that in the past
+    return false;
+};
+
+var isTournamentComplete = function (tourStop) {
     var endDate = new Date(tourStop.endDate);
 
-    return endDate.getTime() < now.getTime();
+    var complete = inThePast(endDate);
+
+    console.log("Tournament end date: " + tourStop.endDate + ", complete=" + complete);
+
+    return complete;
 };
 
 var archiveEventIfNecessary = function (tourEvent) {
