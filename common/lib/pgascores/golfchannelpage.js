@@ -38,7 +38,7 @@ var getTournamentData = function ($) {
     tournament_string = tournament_string.replace(r, function (match, grp) {
         return String.fromCharCode(parseInt(grp, 16));
     });
-    var r = /\\([–’‘éúíáñö“”\\\/])/gi;
+    var r = /\\([–’‘èéúíáñö“”\\\/])/gi;
     tournament_string = tournament_string.replace(r, function (match, grp) {
         return grp;
     });
