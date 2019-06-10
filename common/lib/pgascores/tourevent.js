@@ -63,8 +63,10 @@ var dumpTournamentData = function (tournament_data) {
   dumpData(tournament_data.leaderboard);
   console.log("scorecards[0]:");
   dumpData(tournament_data.leaderboard.scorecards[0]);
-  console.log("scores[0]:");
-  dumpData(tournament_data.leaderboard.scorecards[0].scores[0]);
+  if (tournament_data.leaderboard.scorecards[0]) {
+    console.log("scores[0]:");
+    dumpData(tournament_data.leaderboard.scorecards[0].scores[0]);
+  }
   console.log("event:");
   dumpData(tournament_data.event);
   console.log("golfClubs[0]:");
