@@ -60,11 +60,11 @@ var archiveEventIfNecessary = function (tourEvent) {
             .then((result) => {
                 if (result) {
                     // already in the cache, don't need to do anything
-                    console.log("Found entry for event " + id + "!");
+                    // console.log("Found entry for event " + id + "!");
 
                     resolve(false); // already in the cache, no archive necessary
                 } else {
-                    console.log("No archive for event id " + id);
+                    console.log("Archiving event " + id);
 
                     // didn't find it, go get it from the web and store result
                     page.get(tourEvent.getUrl(), function (tournament_data) {
@@ -103,7 +103,6 @@ var archiveSeason = function (tourSchedule, tournament_data) {
 
             // if the tournament is complete, see if we have it in archive
             if (isTournamentComplete(result)) {
-                console.log("Attempting archive for eventid " + eventid);
 
                 var tourEvent = new TourEvent(tour, year, gcid, eventid);
 

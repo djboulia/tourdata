@@ -94,7 +94,7 @@ var TourEvent = function (tour, year, gcid, eventid) {
       return null;
     }
 
-    dumpTournamentData(tournament_data);
+    // dumpTournamentData(tournament_data);
 
     // we should have an object with a valid leaderboard and golfer array
     // check that first before we load up the players
@@ -124,6 +124,7 @@ var TourEvent = function (tour, year, gcid, eventid) {
     }
 
     var eventInfo = getEventDetails(tournament_data.event);
+    console.log("Found event " + JSON.stringify(eventInfo));
 
     var eventData = {
       "name": eventInfo.name,
@@ -143,9 +144,8 @@ var TourEvent = function (tour, year, gcid, eventid) {
 
     //
     // get tour schedule from our back end data source
-
-    var provider = new TourDataProvider(year);
-
+    var provider = new TourDataProvider(year); 
+    
     provider.get(self, function (records) {
 
       if (provider.isGolfChannel()) {

@@ -20,7 +20,7 @@ var config = new Config();
 //
 var isDuplicateCourse = function (courses, course) {
   for (var i = 0; i < courses.length; i++) {
-    console.log("courses[i]=" + courses[i] + ", course=" + course);
+    // console.log("courses[i]=" + courses[i] + ", course=" + course);
 
     if (courses[i] === course) {
       console.log("found duplicate course " + course);
@@ -88,7 +88,7 @@ var getTournamentDetails = function (tour, year, event) {
   details.year = year;
   details.id = leaderboard.eventKey;
 
-  console.log("found course " + details.name + " and id " + details.id);
+  console.log("found event " + details.name + " and id " + details.id);
 
   return details;
 };
@@ -196,7 +196,7 @@ var TourSchedule = function (tour, year) {
       record.purse = event.purse;
       record.winner = event.winnerName;
 
-      console.log(JSON.stringify(record));
+      // console.log(JSON.stringify(record));
 
       if (record.tournament.name.endsWith('- Amateurs')) {
         // for some reason, a separate entry for the Amateur results 

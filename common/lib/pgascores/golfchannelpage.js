@@ -9,7 +9,7 @@ var getTournamentData = function ($) {
         callback(null);
         return;
     } else {
-        console.log("found scripts");
+        // console.log("found scripts");
     }
 
     // all event info now stored in this variable in the web page
@@ -32,7 +32,7 @@ var getTournamentData = function ($) {
     // To fix, we munge it back by converting unicode numbers and special characters
     var tournament_string = text.substr(start + searchString.length + 1, end - 1);
 
-    console.log(tournament_string.substr(0, 30) + "..." + tournament_string.substr(-30));
+    // console.log(tournament_string.substr(0, 30) + "..." + tournament_string.substr(-30));
 
     var r = /\\u([\d\w]{4})/gi;
     tournament_string = tournament_string.replace(r, function (match, grp) {
@@ -43,8 +43,8 @@ var getTournamentData = function ($) {
         return grp;
     });
 
-    console.log(tournament_string.substr(0, 1000));
-    console.log("start " + start + " end " + end);
+    // console.log(tournament_string.substr(0, 1000));
+    // console.log("start " + start + " end " + end);
 
     var tournament_data = JSON.parse(tournament_string);
     return tournament_data;

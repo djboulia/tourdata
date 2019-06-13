@@ -1,8 +1,8 @@
 var GolfChannelTourData = require('./golfchannelcache.js');
 var PGATourData = require('./pgatourarchive.js');
 
-var golfChannelTourData = new GolfChannelTourData(60 * 60 * 24); // tour schedule doesn't change much; keep for 24 hrs
-var pgaTourData = new PGATourData(60 * 60 * 24 * 30); // archive data is stable; keep for 30 days
+var pgaTourData = new PGATourData(60 * 60 * 24 * 30); // archive data doesn't change; keep for 30 days
+var golfChannelTourData = new GolfChannelTourData(60 * 5); // 5 min cache
 
 // I've switched data sources over the years based on data
 // availability.  In the past the pgatour.com web site 
@@ -11,10 +11,10 @@ var pgaTourData = new PGATourData(60 * 60 * 24 * 30); // archive data is stable;
 // per hole stroke data.  Furthermore, the sites are not 
 // reliable about keeping the old data around, so I've stored
 // the prior years in an object storage archive.  Depending
-// on the year, the archive changes, so figure that out here
+// on the year, the source changes, so we figure that out here
 
 var TourDataProvider = function (year) {
-
+ 
     this.isGolfChannel = function () {
         return year >= 2019;
     };

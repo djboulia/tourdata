@@ -11,7 +11,7 @@ var tournamentFormat = function (tournament) {
   var format = "stroke";
 
   var name = NameUtils.normalize(tournament.name);
-  console.log("normalized tournament name: " + name);
+  // console.log("normalized tournament name: " + name);
 
   if (name.includes("match_play") ||
     name.includes("presidents_cup") ||
@@ -36,14 +36,14 @@ var isMajor = function (tournament) {
   var major = false;
 
   var name = NameUtils.normalize(tournament.name);
-  console.log("normalized tournament name: " + name);
+  // console.log("normalized tournament name: " + name);
 
   if (name.includes("masters") ||
     name.includes("us_open") ||
     name === "the_open" ||
     name.includes("open_championship") ||
     name.includes("pga_championship")) {
-    console.log("found major: " + name);
+    console.log("found major: " + name + " for tournament " + tournament.name);
     major = true;
   }
 
