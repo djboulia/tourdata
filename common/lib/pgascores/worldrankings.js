@@ -109,7 +109,7 @@ exports.getRankings = function (tour, year, callback) {
 
             } else {
 
-                console.log("rankings: " + JSON.stringify(eventdata));
+                // console.log("rankings: " + JSON.stringify(eventdata));
                 callback(eventdata);
 
             }
