@@ -7,11 +7,11 @@
 
 var request = require('request');
 
-var CacheModule = require('./utils/cache.js');
+var Cache = require('./utils/cache.js');
 var PGAWorldRankingsArchive = require('./worldrankingsarchive.js');
 var PGATourRankingsPage = require('./pgatourrankingspage.js');
 
-var pageCache = new CacheModule.Cache(60 * 60 * 24); // rankings don't change much; keep for 24 hrs
+var pageCache = new Cache(60 * 60 * 24); // rankings don't change much; keep for 24 hrs
 var pgaArchive = new PGAWorldRankingsArchive(60 * 60 * 24 * 30); // archive data is stable; keep for 30 days
 
 var thisYear = function () {

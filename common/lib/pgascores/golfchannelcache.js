@@ -1,5 +1,5 @@
 var GolfChannelPage = require('./golfchannelpage.js');
-var CacheModule = require('./utils/cache.js');
+var Cache = require('./utils/cache.js');
 var Storage = require('./utils/storage.js');
 var Config = require('./utils/config.js');
 
@@ -13,7 +13,7 @@ var config = new Config();
 // the web to check the live site.
 //
 var GolfChannelCache = function (timeMs) {
-    var pageCache = new CacheModule.Cache(timeMs);
+    var pageCache = new Cache(timeMs);
     var page = new GolfChannelPage();
     var golfChannelArchive = new Storage(config.archive.getGolfChannelBucket());
 

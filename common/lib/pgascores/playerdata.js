@@ -48,7 +48,7 @@ var isValidScore = function (score) {
 
 var fixEmptyRoundScore = function (golfer, record) {
     if (golfer.status.toLowerCase() === "cut") {
-        console.log("cut player: " + JSON.stringify(record));
+        // console.log("cut player: " + JSON.stringify(record));
 
         if (record[3] == 0 || record[3] == '-') {
             record[3] = "CUT";

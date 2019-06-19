@@ -1,4 +1,4 @@
-var CacheModule = require('./utils/cache.js');
+var Cache = require('./utils/cache.js');
 var Storage = require('./utils/storage.js');
 var Config = require('./utils/config.js');
 
@@ -11,7 +11,7 @@ var archive = new Storage(config.archive.getWorldRankingsBucket());
 // repeated calls
 //
 var PGAWorldRankingsArchive = function (timeMs) {
-    var pageCache = new CacheModule.Cache(timeMs);
+    var pageCache = new Cache(timeMs);
 
     this.get = function (year, cb) {
         var id = config.archive.getWorldRankingsId(year);
