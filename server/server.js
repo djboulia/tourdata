@@ -1,6 +1,18 @@
 var loopback = require('loopback');
 var boot = require('loopback-boot');
 
+// var memwatch = require('node-memwatch');
+// memwatch.on('leak', function (info) {
+//     console.log("=============MEMWATCH LEAK============");
+//     console.log(JSON.stringify(info));
+//     console.log("=============MEMWATCH LEAK============");
+// });
+
+// memwatch.on('stats', function(stats) {
+//     console.log("=============MEMWATCH STATS============");
+//     console.log(JSON.stringify(stats));
+//     console.log("=============MEMWATCH STATS============");
+// });
 
 var app = module.exports = loopback();
 

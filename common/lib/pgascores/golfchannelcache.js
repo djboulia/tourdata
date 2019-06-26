@@ -4,6 +4,8 @@ var Storage = require('./utils/storage.js');
 var Config = require('./utils/config.js');
 
 var config = new Config();
+var page = new GolfChannelPage();
+var golfChannelArchive = new Storage(config.archive.getGolfChannelBucket());
 
 // 
 // encapsulate the basic golf channel tour data (schedule and events)
@@ -14,8 +16,6 @@ var config = new Config();
 //
 var GolfChannelCache = function (timeMs) {
     var pageCache = new Cache(timeMs);
-    var page = new GolfChannelPage();
-    var golfChannelArchive = new Storage(config.archive.getGolfChannelBucket());
 
     //
     // check cache, archive, and finally the URL

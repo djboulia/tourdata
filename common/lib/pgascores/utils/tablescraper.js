@@ -3,7 +3,7 @@
 // the returned object is an array of objects, with each object
 // representing the table elements in that row.
 //
-// The parse method takes a fieldmap, an array of object names to map
+// The scrape method takes a fieldmap, an array of object names to map
 // to each field in a row.  If you don't want to preserve one of the
 // fields, set it with the empty string.
 //
@@ -23,7 +23,7 @@
 //  var ts = new TableScraper(html);
 //
 //  if (ts.init('table#names')) { // look for the table in our html
-//    var records = ts.parse(["first", "last", "", "", year]);
+//    var records = ts.scrape(["first", "last", "", "", year]);
 //  }
 //
 //  records would now consist of:

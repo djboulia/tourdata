@@ -1,8 +1,8 @@
 var GolfChannelTourData = require('./golfchannelcache.js');
 var PGATourData = require('./pgatourarchive.js');
 
-var pgaTourData = new PGATourData(60 * 60 * 24 * 30); // archive data doesn't change; keep for 30 days
 var golfChannelTourData = new GolfChannelTourData(60 * 5); // 5 min cache
+var pgaTourData = new PGATourData(60 * 60 * 24 * 30); // archive data doesn't change; keep for 30 days
 
 // I've switched data sources over the years based on data
 // availability.  In the past the pgatour.com web site 

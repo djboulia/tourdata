@@ -1,2 +1,4 @@
 applications:
 - name: tourdata
+  env:
+    OPTIMIZE_MEMORY: true
