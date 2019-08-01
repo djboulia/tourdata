@@ -47,6 +47,11 @@ var findTournamentDataScript = function ($) {
     return result;
 };
 
+//
+// version 1 of the tournament data had the
+// format __gc_tournament_data = "xxx";
+// where "xxx" was the data we're looking for
+//
 var isVersion1 = function (script) {
     var start = script.indexOf(searchString);
 
@@ -62,6 +67,16 @@ var isVersion1 = function (script) {
     return false;
 };
 
+//
+// version 2 of the tournament data has the
+// format:
+//   __gc_tournament_data = {
+//    display = "full",
+//    scoring = "StrokePlay",
+//    data = "xxx"
+//  }
+// where "xxx" is the data we're looking for
+//
 var isVersion2 = function (script) {
     var start = script.indexOf(searchString);
 
@@ -96,12 +111,17 @@ var getTournamentData = function ($) {
             .substr(start + searchString.length)
             .indexOf('";');
 
+        // console.log("start " + start + " end " + end);
+
         tournament_string = script.substr(start + searchString.length + 1, end - 1);
     } else if (isVersion2(script)) {
-        // changed the format in the middle of the 2019 season... handle that here
+        // GC changed the format in the middle of the 2019 season... handle that here
         console.log("version 2 format detected");
 
+        // eval of the script should give us a data structure
+        // like isVersion2 above
         eval(script);
+
         // console.log(JSON.stringify(__gc_tournament_data__));
 
         if (__gc_tournament_data__ && __gc_tournament_data__.data) {
@@ -119,7 +139,6 @@ var getTournamentData = function ($) {
     tournament_string = unescapeString(tournament_string);
 
     // console.log(tournament_string.substr(0, 1000));
-    // console.log("start " + start + " end " + end);
 
     var tournament_data = null;
 
