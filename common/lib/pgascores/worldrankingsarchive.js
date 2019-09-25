@@ -1,4 +1,3 @@
-var Cache = require('./utils/cache.js');
 var Storage = require('./utils/storage.js');
 var Config = require('./utils/config.js');
 
@@ -10,43 +9,61 @@ var archive = new Storage(config.archive.getWorldRankingsBucket());
 // implements a basic cache to avoid hitting back end storage with
 // repeated calls
 //
-var PGAWorldRankingsArchive = function (timeMs) {
-    var pageCache = new Cache(timeMs);
+var PGAWorldRankingsArchive = function (year) {
 
-    this.get = function (year, cb) {
+    this.getId = function () {
         var id = config.archive.getWorldRankingsId(year);
 
-        var records = pageCache.get(id);
+        return id;
+    };
 
-        // check cache first, return that if we have it already
-        if (records) {
-            process.nextTick(function () {
-                cb(records);
+    this.exists = function (cb) {
+        var id = this.getId();
+
+        // go to the archives next
+        archive.exists(id)
+            .then((result) => {
+                cb(result);
+            })
+            .catch((e) => {
+                console.log("error querying item " + id);
+                cb(null);
             });
-        } else {
+    };
 
-            // go to the archives next
-            archive.exists(id)
-                .then((result) => {
-                    if (result) {
-                        console.log("found item in archive!");
+    this.get = function (cb) {
+        var id = this.getId();
 
-                        archive.get(id)
-                            .then((records) => {
-                                if (records) {
-                                    // save it in the cache for next time
-                                    pageCache.put(id, records);
-                                }
+        // go to the archives next
+        archive.exists(id)
+            .then((result) => {
+                if (result) {
+                    console.log("found item in archive!");
 
-                                cb(records);
-                            });
-                    } else {
-                        console.log("no archive item found!");
-                        cb(null);
-                    }
-                });
+                    archive.get(id)
+                        .then((records) => {
+                            cb(records);
+                        });
+                } else {
+                    console.log("no archive item found!");
+                    cb(null);
+                }
+            });
+    };
 
-        }
+    this.put = function (records, cb) {
+        var id = this.getId();
+
+        // go to the archives next
+        archive.put(id, records)
+            .then((result) => {
+                console.log("stored item with id " + id + " in archive!");
+                cb(result);
+            })
+            .catch((e) => {
+                console.log("error storing item!");
+                cb(null);
+            });
 
     }
 }

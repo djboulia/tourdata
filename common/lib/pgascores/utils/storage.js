@@ -100,10 +100,11 @@ var Storage = function (bucket) {
                     Body: str
                 }).promise()
                 .then(() => {
+                    console.log("Storage.put: item stored!");
                     resolve(str); // return the content we actually stored
                 })
                 .catch((e) => {
-                    console.error(`ERROR: ${e.code} - ${e.message}\n`);
+                    console.error(`Storage.put: ERROR! ${e.code} - ${e.message}\n`);
                     reject(e);
                 });
         });

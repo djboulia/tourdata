@@ -1,5 +1,6 @@
 var libPath = '../../common/lib';
 var pgaLibPath = libPath + '/pgascores';
+var WorldRankingsProvider = require(pgaLibPath + '/worldrankingsprovider.js');
 
 var Logger = require(libPath + '/utils/logger.js');
 logger = new Logger(false);
@@ -15,12 +16,12 @@ module.exports = function (Rankings) {
      *
      **/
     Rankings.search = function (tour, year, cb) {
-        var rankings = require(pgaLibPath + '/worldrankings.js');
+        var rankings = new WorldRankingsProvider();
 
         var str = "searching for rankings in year " + year + " and tour " + tour;
         logger.log(str);
 
-        rankings.getRankings(tour, year, function (results) {
+        rankings.get(tour, year, function (results) {
             logger.debug(JSON.stringify(results));
 
             cb(null, results);

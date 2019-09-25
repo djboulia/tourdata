@@ -94,9 +94,15 @@ module.exports = function (Tournament) {
 
         if (context.args.year) {
             var year = context.args.year;
+            var thisMonth = new Date().getMonth();
             var thisYear = new Date().getFullYear();
 
-            if (year < 2003 || year > thisYear) {
+            // next  year's PGA tour season starts in September of the
+            // year before... so once we hit September, allow next
+            // year as a valid year.
+            var maxYear = (thisMonth >= 8) ? thisYear +1 : thisYear;
+
+            if (year < 2003 || year > maxYear) {
                 next(new Error("Invalid year " + year));
                 return;
             }

@@ -1,16 +1,27 @@
+/**
+ * 
+ * This is the main interface the external API uses to get access to the 
+ * tour schedule and event information.  It takes the raw feed from the
+ * golf feeds, simplifies it and adds information such as stroke vs. match
+ * play, whether the tournament is a major, etc.
+ *
+ */
 var NameUtils = require('./utils/nameutils.js');
 var TourEvent = require('./tourevent.js');
 var TourSchedule = require('./tourschedule.js');
 
-//
-// look at the tournament details to figure out if this is a stroke play
-// or match play event
-//
-var tournamentFormat = function (tournament) {
+/**
+ * look at the tournament name to figure out if this is a stroke play
+ * or match play event
+ * 
+ * @param {String} tournament_name The event name (e.g. The Masters)
+ */
+var tournamentFormat = function (tournament_name) {
+
   // most are stroke format, look for the exceptions
   var format = "stroke";
 
-  var name = NameUtils.normalize(tournament.name);
+  var name = NameUtils.normalize(tournament_name);
   // console.log("normalized tournament name: " + name);
 
   if (name.includes("match_play") ||
@@ -23,19 +34,23 @@ var tournamentFormat = function (tournament) {
   return format;
 };
 
-//
-// look at the tournament details to figure out if this is one of the
-// four majors: The Masters, US Open, Open Championship (British) and PGA Championship
-//
-// Note: the (former) British Open has been renamed multiple times from
-//       140th Open Championship, to Open Championship to simply "The Open".
-//       So we try to catch all of those.
-//
-var isMajor = function (tournament) {
+/**
+ * look at the tournament name to figure out if this is one of the
+ * four majors: The Masters, US Open, Open Championship (British) and 
+ * PGA Championship
+ * 
+ * Note: the (former) British Open has been renamed multiple times from
+ *       140th Open Championship, to Open Championship to simply "The Open".
+ *       So we try to catch all of those.
+ * 
+ * @param {String} tournament_name The event name (e.g. The Masters)
+ */
+var isMajor = function (tournament_name) {
+
   // most are not majors, look for the exceptions
   var major = false;
 
-  var name = NameUtils.normalize(tournament.name);
+  var name = NameUtils.normalize(tournament_name);
   // console.log("normalized tournament name: " + name);
 
   if (name.includes("masters") ||
@@ -43,19 +58,19 @@ var isMajor = function (tournament) {
     name === "the_open" ||
     name.includes("open_championship") ||
     name.includes("pga_championship")) {
-    console.log("found major: " + name + " for tournament " + tournament.name);
+    console.log("found major: " + name + " for tournament " + tournament_name);
     major = true;
   }
 
   return major;
 };
 
-
-
-//
-// map our tour names to the Golf Channel tour name
-//
-var getGCTourName = function (tour) {
+/**
+ * Normalize our tour name to what the tour provider will expect
+ * 
+ * @param {String} tour name of tour, PGA, or European are accepted
+ */
+var normalizeTourName = function (tour) {
   var tourname = "";
 
   switch (tour) {
@@ -112,8 +127,8 @@ var formatScheduleResults = function (tour, year, results) {
       href: createPath(tour, year, i)
     };
     record.courses = result.tournament.courses;
-    record.format = tournamentFormat(result.tournament);
-    record.major = isMajor(result.tournament);
+    record.format = tournamentFormat(result.tournament.name);
+    record.major = isMajor(result.tournament.name);
 
     record.purse = result.purse;
     record.winner = result.winner;
@@ -124,15 +139,28 @@ var formatScheduleResults = function (tour, year, results) {
   return records;
 };
 
-//
-// Take the raw golfchannel feed and munge it into our schedule structure
-//
+/**
+ * Take the raw tour data feed and munge it into our schedule structure
+ * 
+ *	@year 			    : year this tournament took place
+ *  @tour           : tour name (e.g. pga-tour)
+ *	@callback 		  : will be called back with eventdata as only argument
+ */
 exports.search = function (tour, year, callback) {
 
-  var tourSchedule = new TourSchedule(getGCTourName(tour), year);
+  const tourName = normalizeTourName(tour);
+
+  if (!tourName) {
+    console.log("Invalid tour name!");
+    callback(null);
+  }
+
+  var tourSchedule = new TourSchedule(tourName, year);
 
   tourSchedule.get(function (results) {
+
     if (results == null) {
+
       console.log("getSchedule() failed!");
       callback(null);
 
@@ -146,88 +174,51 @@ exports.search = function (tour, year, callback) {
       });
     }
   });
-
 };
 
-//
-// translate between our API naming convention and the Golf Channel site
-// we do this by looking up the tour schedule from the golf channel, finding
-// the event that matches, then returning the id that the Golf Channel expects
-//
-var findGCEvent = function (tour, year, eventid, callback) {
-  var format = null;
-  var major = null;
-
-  var tourSchedule = new TourSchedule(getGCTourName(tour), year);
-
-  tourSchedule.get(function (results) {
-    if (results == null) {
-      console.log("getSchedule() failed!");
-      callback(null);
-
-    } else {
-
-      var id = null;
-
-      if (eventid >= results.length) {
-        console.log("error!  invalid event id found!");
-        callback(null);
-        return;
-      }
-
-      var result = results[eventid];
-
-      console.log("found id " + result.tournament.id + " for event " + eventid);
-      tour = result.tournament.tour;
-      year = result.tournament.year;
-
-      var gcid = result.tournament.id; // golf channel id
-      var format = tournamentFormat(result.tournament);
-      var major = isMajor(result.tournament);
-
-      callback(tour, year, gcid, eventid, format, major);
-    }
-  });
-};
 
 /**
  *	getEvent
  *
- *	@year 			: year this tournament took place
+ *	@year 			    : year this tournament took place
  *  @tour           : tour name (e.g. pga-tour)
  *  @event          : event id (e.g. us-open)
  *  @details        : true to include per hole and per round data
- *	@callback 		: will be called back with eventdata as only argument
+ *	@callback 		  : will be called back with eventdata as only argument
  *		 			  eventdata : hash of event keys, tournament descriptions
  */
-exports.getEvent = function (tour, year, event, details, callback) {
+exports.getEvent = function (tour, year, eventid, details, callback) {
 
-  findGCEvent(tour, year, event, function (tour, year, gcid, eventid, format, major) {
+  const tourName = normalizeTourName(tour);
 
-    if (tour == undefined) {
+  if (!tourName) {
+    console.log("Invalid tour name!");
+    callback(null);
+  }
+
+  console.log("getting tour info for " + tourName + " " + year + " eventid " + eventid);
+
+  var tourEvent = new TourEvent(tourName, year, eventid);
+
+  tourEvent.get(details, function (eventdata) {
+    if (eventdata == null) {
+
+      console.log("PGA event call failed!");
       callback(null);
-      return;
+
+    } else {
+
+      const format = tournamentFormat(eventdata.name);
+      const major = isMajor(eventdata.name);
+
+      console.log("format " + format + " major " + major);
+      console.log("eventdata.name " + JSON.stringify(eventdata.name));
+
+      eventdata.format = format;
+      eventdata.major = major;
+
+      callback(eventdata);
     }
-
-    console.log("getting tour info for " + tour + " " + year + " " + gcid  + " eventid " + eventid);
-
-    var tourEvent = new TourEvent(tour, year, gcid, eventid);
-
-    tourEvent.get(details, function (eventdata) {
-      if (eventdata == null) {
-
-        console.log("PGA event call failed!");
-        callback(null);
-
-      } else {
-        console.log("format " + format + " major " + major);
-
-        eventdata.format = format;
-        eventdata.major = major;
-
-        callback(eventdata);
-      }
-    });
   });
 
 };

@@ -3,21 +3,13 @@
 // for any prior tournaments in the year that have not yet been archived
 //
 
-var Storage = require('../utils/storage.js');
-var Config = require('../utils/config.js');
-var GolfChannelPage = require('../golfchannelpage.js');
-var TourSchedule = require('../tourschedule.js');
-var TourEvent = require('../tourevent.js');
-
-var config = new Config();
-var cos = new Storage(config.archive.getGolfChannelBucket());
-var page = new GolfChannelPage();
+var GolfChannel = require('../golfchannel/golfchannelcurrent.js');
 
 //
 // compare just the year/month/day and return true if the date
 // is the current date or earlier
 //
-var inThePast = function( date ) {
+var inThePast = function (date) {
     var now = new Date();
 
     if (date.getFullYear() < now.getFullYear()) {
@@ -37,7 +29,7 @@ var inThePast = function( date ) {
     } else if (date.getDate() > now.getDate()) {
         return false;
     }
-    
+
     // date is today if we get here... we do NOT consider that in the past
     return false;
 };
@@ -52,61 +44,35 @@ var isTournamentComplete = function (tourStop) {
     return complete;
 };
 
-var archiveEventIfNecessary = function (tourEvent) {
+var archiveEventIfNecessary = function (golfChannel, eventid) {
     return new Promise((resolve, reject) => {
-        var id = tourEvent.getId();
 
-        cos.exists(id)
-            .then((result) => {
-                if (result) {
-                    // already in the cache, don't need to do anything
-                    // console.log("Found entry for event " + id + "!");
+        golfChannel.isEventArchived(eventid, function (result) {
+            if (result) {
+                // already in the cache, don't need to do anything
+                // console.log("Found entry for event " + id + "!");
 
-                    resolve(false); // already in the cache, no archive necessary
-                } else {
-                    console.log("Archiving event " + id);
-
-                    // didn't find it, go get it from the web and store result
-                    page.get(tourEvent.getUrl(), function (tournament_data) {
-                        if (tournament_data) {
-                            cos.put(tourEvent.getId(), tournament_data)
-                                .then((result) => {
-                                    console.log("stored key " + tourEvent.getId());
-                                    resolve(true); // archived
-                                })
-                                .catch((e) => {
-                                    console.log("Error!");
-                                    reject(e);
-                                });
-                        }
-                    });
-                }
-            })
-            .catch((e) => {
-                console.log("Error archiving event " + id + "!");
-                reject(e);
-            });
+                resolve(false); // already in the cache, no archive necessary
+            } else {
+                golfChannel.archiveEvent(eventid, function (results) {
+                    resolve(results != null);
+                });
+            }
+        })
     });
 };
 
-var archiveSeason = function (tourSchedule, tournament_data) {
+var archiveSeason = function (golfChannel, results) {
     return new Promise((resolve, reject) => {
-        var results = tourSchedule.normalize(tournament_data);
         var promises = [];
 
         // use schedule to start rolling through the season
         for (var eventid = 0; eventid < results.length; eventid++) {
             var result = results[eventid];
-            var tour = result.tournament.tour;
-            var year = result.tournament.year
-            var gcid = result.tournament.id;
 
             // if the tournament is complete, see if we have it in archive
             if (isTournamentComplete(result)) {
-
-                var tourEvent = new TourEvent(tour, year, gcid, eventid);
-
-                promises.push(archiveEventIfNecessary(tourEvent));
+                promises.push(archiveEventIfNecessary(golfChannel, eventid));
             } else {
                 console.log("Tournament " + eventid + " has end date " + result.endDate + ". Skipping");
             }
@@ -127,54 +93,35 @@ var SeasonArchiver = function (tour) {
     this.archive = function (year) {
 
         // attempt to get the schedule from the archive
-        var tourSchedule = new TourSchedule(tour, year);
-        var id = tourSchedule.getId();
+        var golfChannel = new GolfChannel(tour, year);
 
         var now = new Date();
         console.log("Beginning season archive at " + now.toString());
 
-        cos.exists(id)
-            .then((result) => {
-                if (result) {
-                    console.log("Found entry for year " + year + "!");
+        golfChannel.isScheduleArchived(function (result) {
+            if (result) {
+                console.log("Found entry for year " + year + "!");
 
-                    cos.get(id)
-                        .then((tournament_data) => {
-                            if (tournament_data) {
+                golfChannel.getSchedule(function (records) {
+                    if (records) {
 
-                                // now parse through the rest of the schedule
-                                archiveSeason(tourSchedule, tournament_data);
-                            }
-                        })
-                        .catch((e) => {
-                            console.log("Error getting tour schedule!");
-                        });
-                } else {
-                    console.log("No archive for year " + year);
+                        // now parse through the rest of the schedule
+                        archiveSeason(golfChannel, records);
+                    }
+                });
+            } else {
+                console.log("No archive for year " + year);
 
-                    // didn't find it, go get it from the web and store result
-                    page.get(tourSchedule.getUrl(), function (tournament_data) {
-                        if (tournament_data) {
-                            cos.put(tourSchedule.getId(), tournament_data)
-                                .then((result) => {
-                                    console.log("stored key " + tourSchedule.getId());
+                // didn't find it in the archive, archive it
+                golfChannel.archiveSchedule(function (records) {
 
-                                    // now parse through the rest of the schedule
-                                    archiveSeason(tourSchedule, tournament_data);
+                    // now parse through the rest of the schedule
+                    archiveSeason(golfChannel, records);
 
-                                })
-                                .catch((e) => {
-                                    console.log("Error!");
-                                });
-                        }
-                    });
-                }
-            })
-            .catch((e) => {
-                console.log("Error!");
-            });
-
-    };
+                });
+            }
+        });
+    }
 };
 
 module.exports = SeasonArchiver;

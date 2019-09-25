@@ -8,9 +8,6 @@ var request = require('request');
 
 var NameUtils = require('./utils/nameutils.js');
 var TableScraper = require('./utils/tablescraper.js');
-var Config = require('./utils/config.js');
-
-var config = new Config();
 
 var thisYear = function () {
     return new Date().getFullYear();
@@ -50,14 +47,7 @@ var RankingsScraper = function (html) {
 
 var PGATourRankingsPage = function (tour, year) {
 
-    this.getId = function () {
-        // attempt to get the schedule from the archive
-        var id = config.archive.getWorldRankingsId(year);
-
-        return id;
-    };
-
-    this.getUrl = function () {
+    var getUrl = function () {
         var url = "http://www.pgatour.com/stats/stat.186";
 
         if (year == thisYear()) {
@@ -74,8 +64,7 @@ var PGATourRankingsPage = function (tour, year) {
         var scraper = new RankingsScraper(html);
 
         if (!scraper.init()) {
-            callback(null);
-            return;
+            return null;
         }
 
         var records = scraper.scrape();
@@ -83,8 +72,11 @@ var PGATourRankingsPage = function (tour, year) {
         return records;
     };
 
-    this.get = function (url, cb) {
-        // nope, go to the web and get it
+    this.get = function (cb) {
+        var page = null;
+        const url = getUrl();
+
+        // go to the web and get it
         request.get(url, (error, response, body) => {
 
             if (!error && response.statusCode == 200) {
@@ -95,8 +87,8 @@ var PGATourRankingsPage = function (tour, year) {
                 console.error("Error message: " + JSON.stringify(error));
             }
 
-            cb(page);
-
+            const records = this.parse(page);
+            cb(records);
         });
     };
 };

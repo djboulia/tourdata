@@ -122,7 +122,7 @@ var getTournamentData = function ($) {
         // like isVersion2 above
         eval(script);
 
-        // console.log(JSON.stringify(__gc_tournament_data__));
+        console.log(JSON.stringify(__gc_tournament_data__));
 
         if (__gc_tournament_data__ && __gc_tournament_data__.data) {
             tournament_string = __gc_tournament_data__.data;
