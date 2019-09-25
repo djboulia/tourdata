@@ -7,8 +7,7 @@
  *
  */
 var NameUtils = require('./utils/nameutils.js');
-var TourEvent = require('./tourevent.js');
-var TourSchedule = require('./tourschedule.js');
+var TourDataProvider = require('./tourdataprovider.js');
 
 /**
  * look at the tournament name to figure out if this is a stroke play
@@ -155,9 +154,9 @@ exports.search = function (tour, year, callback) {
     callback(null);
   }
 
-  var tourSchedule = new TourSchedule(tourName, year);
+  var provider = new TourDataProvider(tourName, year);
 
-  tourSchedule.get(function (results) {
+  provider.getSchedule(function (results) {
 
     if (results == null) {
 
@@ -198,9 +197,9 @@ exports.getEvent = function (tour, year, eventid, details, callback) {
 
   console.log("getting tour info for " + tourName + " " + year + " eventid " + eventid);
 
-  var tourEvent = new TourEvent(tourName, year, eventid);
+  var provider = new TourDataProvider(tourName, year);
 
-  tourEvent.get(details, function (eventdata) {
+  provider.getEvent(eventid, details, function (eventdata) {
     if (eventdata == null) {
 
       console.log("PGA event call failed!");
