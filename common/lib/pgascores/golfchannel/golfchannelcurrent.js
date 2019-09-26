@@ -65,7 +65,7 @@ var GolfChannelCurrent = function (tour, year, pageCache) {
                 console.log("event url " + url);
 
                 // no cache or archive hit, go to the web
-                page.get(url, function (tournament_data) {
+                page.getEvent(url, function (tournament_data) {
                     callback(tournament_data);
                 });
             }
@@ -82,8 +82,12 @@ var GolfChannelCurrent = function (tour, year, pageCache) {
         // [djb 04/23/2019] changed URL again. :-(  Previously was this:
         //                  return "http://www.golfchannel.com/tours/" + tour + "/2016/safeway-open/?t=schedule&year=" + year;
         //
+        //
+        // [djb 09/25/2019] Changed for 2020 season... prior URL:
+        //                  return "https://www.golfchannel.com/tours/" + tour + "/" + year + "/schedule";
+        //
 
-        var url = "https://www.golfchannel.com/tours/" + tour + "/" + year + "/schedule";
+        const url = "https://www.golfchannel.com/api/Tour/GetTourEvents/1?year=" + year;
         console.log("TourSchedule.getUrl: " + url);
         return url;
     };
@@ -105,14 +109,15 @@ var GolfChannelCurrent = function (tour, year, pageCache) {
 
                 console.log("no archive item found, going to web");
                 self.getEventFromWeb(eventid, function (tournament_data) {
-                    if (tournament_data) {
-                        // save it in the cache for next time
-                        pageCache.put(id, tournament_data);
-                    }
-
                     // need to post process golf channel data before
                     // returning it
                     var records = eventData.normalize(tournament_data);
+
+                    if (records) {
+                        // if we parsed the data correctly, 
+                        // save it in the cache for next time
+                        pageCache.put(id, tournament_data);
+                    }
                     cb(records);
                 });
             }
@@ -123,28 +128,28 @@ var GolfChannelCurrent = function (tour, year, pageCache) {
      * check cache, archive, and finally the URL
      */
     this.getSchedule = function (cb) {
+        const url = this.getScheduleUrl();
+        const id = archive.getScheduleId();
+        const scheduleData = new ScheduleData(tour, year);
 
         // look in the archive first, then go to web if necessary
         archive.getSchedule(function (result) {
             if (result) {
                 cb(result);
             } else {
-                const url = this.getScheduleUrl();
-                const id = archive.getScheduleId();
-                const scheduleData = new ScheduleData(tour, year);
-
                 console.log("no archive item found, going to web");
 
                 // no cache or archive hit, go to the web
-                page.get(url, function (tournament_data) {
-                    if (tournament_data) {
-                        // save it in the cache for next time
-                        pageCache.put(id, tournament_data);
-                    }
-
+                page.getSchedule(url, function (tournament_data) {
                     // need to post process golf channel data before
                     // returning it
                     var records = scheduleData.normalize(tournament_data);
+
+                    if (records) {
+                        // if we parsed the data correctly, 
+                        // save it in the cache for next time
+                        pageCache.put(id, tournament_data);
+                    }
                     cb(records);
                 });
             }
@@ -191,7 +196,7 @@ var GolfChannelCurrent = function (tour, year, pageCache) {
         const url = this.getScheduleUrl();
 
         // go get it from the web and store result
-        page.get(url, function (tournament_data) {
+        page.getSchedule(url, function (tournament_data) {
             if (tournament_data) {
                 archive.putSchedule(tournament_data, function (result) {
                     cb(result);

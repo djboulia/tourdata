@@ -26,7 +26,7 @@ var EventData = function (includeDetails) {
      * of stuff we wouldn't need to see.  This allows a check
      * of the data structures we're expecting to see in the object
      * 
-     * @param {*} tournament_data 
+     * @param {Object} tournament_data 
      */
     var dumpTournamentData = function (tournament_data) {
         dumpData(tournament_data);
@@ -50,18 +50,20 @@ var EventData = function (includeDetails) {
 
         var courses = [];
 
-        for (var i = 0; i < event.golfClubs.length; i++) {
-            var club = event.golfClubs[i];
+        if (event.golfClubs) {
+            for (var i = 0; i < event.golfClubs.length; i++) {
+                var club = event.golfClubs[i];
 
-            for (var j = 0; j < club.courses.length; j++) {
-                var course = club.courses[j];
-                var record = {
-                    name: course.name,
-                    par: course.totalPar,
-                    yardage: course.totalYardage
+                for (var j = 0; j < club.courses.length; j++) {
+                    var course = club.courses[j];
+                    var record = {
+                        name: course.name,
+                        par: course.totalPar,
+                        yardage: course.totalYardage
+                    }
+
+                    courses.push(record);
                 }
-
-                courses.push(record);
             }
         }
 
@@ -80,7 +82,10 @@ var EventData = function (includeDetails) {
      * @param {*} tournament_data 
      */
     this.normalize = function (tournament_data) {
-        if (!tournament_data) {
+        if (!tournament_data || !tournament_data.event ||
+            !tournament_data.event.name) 
+        {
+            console.log("EventData.normalize: invalid tournament_data: " + JSON.stringify(tournament_data));
             return null;
         }
 

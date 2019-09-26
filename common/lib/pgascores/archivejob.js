@@ -1,10 +1,10 @@
-//
-// we periodically save away the tour data for tournaments into
-// cloud storage for prior tournaments that have
-// completed.  this avoids hitting the back end Golf Channel site and
-// guards against the data disappearing in the future (which happens
-// from time to time)
-//
+/**
+ * we periodically save away the tour data for tournaments into
+ * cloud storage for prior tournaments that have
+ * completed.  this avoids hitting the back end Golf Channel site and
+ * guards against the data disappearing in the future (which happens
+ * from time to time)
+ */
 
 var CronJob = require('cron').CronJob;
 
@@ -12,16 +12,26 @@ var SeasonArchiver = require('./archiver/seasonarchiver.js')
 var RankingsArchiver = require('./archiver/rankingsarchiver.js')
 
 var archive = function () {
-    var tour = 'pga-tour';
-    var year = new Date().getFullYear();
+    const tour = 'pga-tour';
+    let year = new Date().getFullYear();
 
     // try to archive the past events for the current season
-    var seasonArchiver = new SeasonArchiver(tour);
+    let seasonArchiver = new SeasonArchiver(tour);
     seasonArchiver.archive(year);
 
+    // since the PGA tour actually starts the next year's season in September
+    // of the current year, we look for that here
+    const SEPTEMBER = 8; // zero based, so month 8 is September
+
+    if (new Date().getMonth() >= SEPTEMBER) { 
+
+        // try to archive the past events for the next season
+        seasonArchiver.archive(year+1);
+    }
+
     // try to archive last year's rankings data (if it's not already archived)
-    var rankingsArchiver = new RankingsArchiver(tour);
-    rankingsArchiver.archive(year-1);
+    let rankingsArchiver = new RankingsArchiver(tour);
+    rankingsArchiver.archive(year - 1);
 };
 
 exports.run = function () {

@@ -122,7 +122,7 @@ var getTournamentData = function ($) {
         // like isVersion2 above
         eval(script);
 
-        console.log(JSON.stringify(__gc_tournament_data__));
+        // console.log(JSON.stringify(__gc_tournament_data__));
 
         if (__gc_tournament_data__ && __gc_tournament_data__.data) {
             tournament_string = __gc_tournament_data__.data;
@@ -153,7 +153,7 @@ var getTournamentData = function ($) {
     return tournament_data;
 }
 
-var processPage = function (page, cb) {
+var parseEvent = function (page, cb) {
     if (page) {
         //
         // parse the html to get at the tournament data
@@ -179,13 +179,62 @@ var processPage = function (page, cb) {
     return false;
 }
 
-//
-// public interface
-//
+var parseSchedule = function (page, cb) {
+    if (page) {
+        //
+        // schedule info is an escaped string, unpack that here
+        //
+        if (page.startsWith('"') && page.endsWith('"')) {
+            // just lop off beginning and ending characters
+            const data = page.slice(1, -1);
+            const schedule_string = unescapeString(data);
 
+            let schedule_data = null;
+
+            try {
+                const eventsObj = JSON.parse(schedule_string);
+
+                // a previous schedule format named the top level
+                // object "tourEvents".  the new format calls this
+                // "events".  return the array as tourEvents to 
+                // preserve backward compatibility with the rest of the code
+                if (eventsObj.events) {
+                    schedule_data = {};
+                    schedule_data.tourEvents = eventsObj.events;
+                    console.log("schedule_data: " + schedule_string);
+                } else {
+                    console.log("Invalid schedule format: " + schedule_string);
+                }
+            } catch (err) {
+                console.log(err);
+                console.log("tournament_string " + schedule_string);
+        
+                schedule_data = null;
+            }
+            
+            cb(schedule_data);  
+            return true;      
+        } else {
+            console.log("Invalid schedule format: " + page);
+            cb(null);
+        }
+    } else {
+        //            console.log("Error retrieving page: " + JSON.stringify(response));
+        console.log("Error retrieving page!");
+        cb(null);
+    }
+
+    return false;
+}
+
+
+/**
+ * handles scraping and parsing the golf channel format
+ * 
+ */
 var GolfChannelPage = function () {
 
-    this.get = function (url, cb) {
+    this.getEvent = function (url, cb) {
         var page = null;
 
         request.get(url, (error, response, body) => {
@@ -197,15 +246,35 @@ var GolfChannelPage = function () {
                 page = body;
             }
 
-            var result = processPage(page, cb);
+            var result = parseEvent(page, cb);
 
             if (!result) {
-                console.error("Error parsing page " + url);
+                console.error("Error parsing event " + url);
             }
         });
 
     };
 
+    this.getSchedule = function (url, cb) {
+        var page = null;
+
+        request.get(url, (error, response, body) => {
+
+            if (error || response.statusCode != 200) {
+                console.error("Error retrieving page.  Response code: " + (response) ? response.statusCode : undefined);
+                console.error("Error message: " + JSON.stringify(error));
+            } else {
+                page = body;
+            }
+
+            var result = parseSchedule(page, cb);
+
+            if (!result) {
+                console.error("Error parsing schedule " + url);
+            }
+        });
+
+    };
 };
 
 module.exports = GolfChannelPage;
