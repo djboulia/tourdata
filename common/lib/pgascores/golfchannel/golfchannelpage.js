@@ -1,12 +1,17 @@
 var request = require('request');
 var cheerio = require('cheerio');
 
-var searchString = "__gc_tournament_data__ = ";
+var SCRIPT_VARIABLE = "__gc_tournament_data__ = ";
 
-// the tournament data is stored as a string in a script with
-// all sorts of escaped characters.  A normal JSON.parse doesn't seem
-// to process it.  I think there's an encoding/conversion issue somewhere
-// To fix, we munge it back by converting unicode numbers and special characters
+/**
+ * the tournament data is stored as a string in a script with
+ * all sorts of escaped characters.  A normal JSON.parse doesn't seem
+ * to process it.  I think there's an encoding/conversion issue somewhere
+ * 
+ * To fix, we munge it by converting unicode numbers and special characters
+ * 
+ * @param {String} string the content to be unescaped
+ */
 var unescapeString = function (string) {
     var r = /\\u([\d\w]{4})/gi;
     string = string.replace(r, function (match, grp) {
@@ -21,6 +26,11 @@ var unescapeString = function (string) {
     return string;
 };
 
+/**
+ * Look for the SCRIPT tag that matches the tournament data variable
+ * 
+ * @param {Object} $ cheerio parser
+ */
 var findTournamentDataScript = function ($) {
     var result = undefined;
 
@@ -32,7 +42,7 @@ var findTournamentDataScript = function ($) {
         $(scripts).each(function (i, elem) {
             var script = $(this).text();
 
-            var start = script.indexOf(searchString);
+            var start = script.indexOf(SCRIPT_VARIABLE);
             if (start >= 0) {
                 console.log("found tournament script!");
                 result = script;
@@ -47,16 +57,18 @@ var findTournamentDataScript = function ($) {
     return result;
 };
 
-//
-// version 1 of the tournament data had the
-// format __gc_tournament_data = "xxx";
-// where "xxx" was the data we're looking for
-//
+
+/**
+ * version 1 of the tournament data had the
+ * format __gc_tournament_data = "xxx";
+ * where "xxx" was the data we're looking for
+ * @param {String} script contents of a SCRIPT tag
+ */
 var isVersion1 = function (script) {
-    var start = script.indexOf(searchString);
+    var start = script.indexOf(SCRIPT_VARIABLE);
 
     var nextChar = script
-        .substr(start + searchString.length, 1);
+        .substr(start + SCRIPT_VARIABLE.length, 1);
 
     // console.log("isVersion1: " + nextChar);
 
@@ -67,21 +79,23 @@ var isVersion1 = function (script) {
     return false;
 };
 
-//
-// version 2 of the tournament data has the
-// format:
-//   __gc_tournament_data = {
-//    display = "full",
-//    scoring = "StrokePlay",
-//    data = "xxx"
-//  }
-// where "xxx" is the data we're looking for
-//
+/**
+ * version 2 of the tournament data has the format:
+ *   __gc_tournament_data = {
+ *     display = "full",
+ *     scoring = "StrokePlay",
+ *     data = "xxx"
+ *   }
+ * 
+ *  where "xxx" is the data we're looking for
+ * 
+ * @param {String} script contents of a SCRIPT tag
+ */
 var isVersion2 = function (script) {
-    var start = script.indexOf(searchString);
+    var start = script.indexOf(SCRIPT_VARIABLE);
 
     var nextChar = script
-        .substr(start + searchString.length, 1);
+        .substr(start + SCRIPT_VARIABLE.length, 1);
 
     // console.log("isVersion2: " + nextChar);
 
@@ -92,8 +106,13 @@ var isVersion2 = function (script) {
     return false;
 };
 
+/**
+ * get all script tags in a page, look for the tournament data and parse it
+ * 
+ * @param {Object} $ cheerio parser results
+ */
 var getTournamentData = function ($) {
-    // get all script tags, look for the tournament data and parse it
+
     var script = findTournamentDataScript($);
     if (script === undefined) {
         console.log("Couldn't find tournament data script!");
@@ -106,14 +125,14 @@ var getTournamentData = function ($) {
         console.log("version 1 format detected");
 
         // all event info now stored in this variable in the web page
-        var start = script.indexOf(searchString);
+        var start = script.indexOf(SCRIPT_VARIABLE);
         var end = script
-            .substr(start + searchString.length)
+            .substr(start + SCRIPT_VARIABLE.length)
             .indexOf('";');
 
         // console.log("start " + start + " end " + end);
 
-        tournament_string = script.substr(start + searchString.length + 1, end - 1);
+        tournament_string = script.substr(start + SCRIPT_VARIABLE.length + 1, end - 1);
     } else if (isVersion2(script)) {
         // GC changed the format in the middle of the 2019 season... handle that here
         console.log("version 2 format detected");
@@ -153,39 +172,65 @@ var getTournamentData = function ($) {
     return tournament_data;
 }
 
-var parseEvent = function (page, cb) {
-    if (page) {
+/**
+ * The Golf Channel uses extensive client side java script to format
+ * event results.  The tournament data can't be just scraped from the
+ * html. Instead the data is in a variable in a SCRIPT tag.  Furthermore
+ * the data is escaped inside a string.  So we first have to look at
+ * all of the SCRIPT tags on the page, find the one with our variable,
+ * the get the variable data and unescape it.  After all of that, it
+ * can be parsed into a javascript object.
+ * 
+ * @param {String} page content of the page
+ */
+var parseEvent = function (page) {
+    return new Promise((resolve, reject) => {
+        if (!page) {
+            //            console.log("Error retrieving page: " + JSON.stringify(response));
+            reject("No page content!");
+            return;
+        }
+
         //
         // parse the html to get at the tournament data
         //
-        var $ = cheerio.load(page);
+        const $ = cheerio.load(page);
 
-        var tournament_data = getTournamentData($);
+        const tournament_data = getTournamentData($);
 
         if (tournament_data != null) {
-            cb(tournament_data);
-            return true;
+            resolve(tournament_data);
         } else {
-            cb(null);
-            return false;
+            reject("Couldn't parse tournament data");
         }
-
-    } else {
-        //            console.log("Error retrieving page: " + JSON.stringify(response));
-        console.log("Error retrieving page!");
-        cb(null);
-    }
-
-    return false;
+    });
 }
 
-var parseSchedule = function (page, cb) {
-    if (page) {
-        //
-        // schedule info is an escaped string, unpack that here
-        //
+
+/**
+ * In late 2019, the format changed from a single page that had both
+ * schedule and tournament results, to a split format where the tour
+ * schedule was hosted on a different page from the individual events
+ * 
+ * The new schedule format is an escaped string of JSON.  We unpack
+ * that here
+ * 
+ * @param {String} page content of the page
+ */
+var parseSchedule = function (page) {
+    return new Promise((resolve, reject) => {
+
+        if (!page) {
+            //            console.log("Error retrieving page: " + JSON.stringify(response));
+            reject("No page content!");
+            return;
+        }
+
+        // page content for the schedule should be a string, so look 
+        // for starting and ending quotes
         if (page.startsWith('"') && page.endsWith('"')) {
-            // just lop off beginning and ending characters
+
+            // lop off beginning and ending quotes of the string
             const data = page.slice(1, -1);
             const schedule_string = unescapeString(data);
 
@@ -202,78 +247,92 @@ var parseSchedule = function (page, cb) {
                     schedule_data = {};
                     schedule_data.tourEvents = eventsObj.events;
                     console.log("schedule_data: " + schedule_string);
+
+                    resolve(schedule_data);
                 } else {
-                    console.log("Invalid schedule format: " + schedule_string);
+                    reject("Error!  No events object found: " + schedule_string);
                 }
+
             } catch (err) {
                 console.log(err);
                 console.log("tournament_string " + schedule_string);
-        
-                schedule_data = null;
-            }
-            
-            cb(schedule_data);  
-            return true;      
-        } else {
-            console.log("Invalid schedule format: " + page);
-            cb(null);
-        }
-    } else {
-        //            console.log("Error retrieving page: " + JSON.stringify(response));
-        console.log("Error retrieving page!");
-        cb(null);
-    }
 
-    return false;
+                schedule_data = null;
+                reject(err);
+            }
+
+        } else {
+            reject("Invalid schedule format: " + page);
+        }
+    });
 }
 
 
 /**
- * handles scraping and parsing the golf channel format
+ * Public interface.
  * 
+ * Handles scraping and parsing the golf channel format for tour
+ * schedule and individual events
  */
 var GolfChannelPage = function () {
 
-    this.getEvent = function (url, cb) {
-        var page = null;
+    /**
+     * go get the specified URL, parse the content into an
+     * event object
+     */
+    this.getEvent = function (url) {
+        return new Promise((resolve, reject) => {
 
-        request.get(url, (error, response, body) => {
+            request.get(url, (error, response, body) => {
 
-            if (error || response.statusCode != 200) {
-                console.error("Error retrieving page.  Response code: " + (response) ? response.statusCode : undefined);
-                console.error("Error message: " + JSON.stringify(error));
-            } else {
-                page = body;
-            }
+                if (error || response.statusCode != 200) {
+                    console.error("Error retrieving page.  Response code: " + (response) ? response.statusCode : undefined);
+                    console.error("Error message: " + JSON.stringify(error));
 
-            var result = parseEvent(page, cb);
+                    reject(error);
+                } else {
 
-            if (!result) {
-                console.error("Error parsing event " + url);
-            }
+                    parseEvent(body)
+                        .then((result) => {
+                            resolve(result);
+                        })
+                        .catch((e) => {
+                            console.error("Error parsing event " + url);
+                            console.error(e);
+                            reject(e);
+                        });
+                }
+            });
         });
-
     };
 
+    /**
+     * go get the specified URL, parse the content into a
+     * schedule object
+     */
     this.getSchedule = function (url, cb) {
-        var page = null;
+        return new Promise((resolve, reject) => {
 
-        request.get(url, (error, response, body) => {
+            request.get(url, (error, response, body) => {
 
-            if (error || response.statusCode != 200) {
-                console.error("Error retrieving page.  Response code: " + (response) ? response.statusCode : undefined);
-                console.error("Error message: " + JSON.stringify(error));
-            } else {
-                page = body;
-            }
+                if (error || response.statusCode != 200) {
+                    console.error("Error retrieving page.  Response code: " + (response) ? response.statusCode : undefined);
+                    console.error("Error message: " + JSON.stringify(error));
 
-            var result = parseSchedule(page, cb);
-
-            if (!result) {
-                console.error("Error parsing schedule " + url);
-            }
+                    reject(error);
+                } else {
+                    parseSchedule(body)
+                        .then((result) => {
+                            resolve(result);
+                        })
+                        .catch((e) => {
+                            console.error("Error parsing schedule " + url);
+                            console.error(e);
+                            reject(e);
+                        });
+                }
+            });
         });
-
     };
 };
 

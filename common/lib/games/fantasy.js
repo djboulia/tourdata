@@ -1,7 +1,7 @@
-var Tournaments = require('../pgascores/tournaments.js');
+var TourDataProvider = require('../pgascores/tourdataprovider.js');
 var ScoreCard = require('../utils/scorecard.js');
 
-var perHoleScoring = function(round_details) {
+var perHoleScoring = function (round_details) {
   var stats = {
     dblEaglePlus: 0,
     eagle: 0,
@@ -33,7 +33,7 @@ var perHoleScoring = function(round_details) {
 
         var netScore = ScoreCard.parseNetScore(net_values[hole]);
 
-        if (isNaN(netScore)) {  // unplayed hole, don't add to scoring
+        if (isNaN(netScore)) { // unplayed hole, don't add to scoring
           stats.score += 0;
         } else if (netScore < -2) { // dbl eagle or better
           stats.score += 13;
@@ -65,7 +65,7 @@ var perHoleScoring = function(round_details) {
   return stats;
 };
 
-var positionScoring = function(posString) {
+var positionScoring = function (posString) {
 
   var pos = ScoreCard.parsePosition(posString);
 
@@ -129,7 +129,7 @@ var positionScoring = function(posString) {
   return stats;
 };
 
-var streakScoring = function(round_details) {
+var streakScoring = function (round_details) {
   var stats = {
     birdieStreaks: 0,
     bogieFreeRounds: 0,
@@ -241,7 +241,7 @@ var streakScoring = function(round_details) {
     console.log("Found 4 rounds under 70!");
     stats.score += 5;
   } else {
-    stats.allRoundsSub70 = false;   // don't set to true until at least one round in progress
+    stats.allRoundsSub70 = false; // don't set to true until at least one round in progress
   }
 
   return stats;
@@ -256,40 +256,46 @@ var streakScoring = function(round_details) {
  *	@callback 		: will be called back with eventdata as only argument
  *		 			  eventdata : object with player data mixed with scoring data
  */
-exports.getScores = function(tour, year, event, callback) {
+exports.getScores = function (tour, year, event, callback) {
   console.log("getting fantasy scoring for " + tour + " " + year + " " + event);
 
-  Tournaments.getEvent(tour, year, event, true, function(eventdata) {
-    if (eventdata == null) {
+  const provider = new TourDataProvider(tour, year);
+  
+  provider.getEvent(event, true)
+    .then((eventdata) => {
+      if (eventdata == null) {
 
-      console.log("PGA event call failed!");
-      callback(null);
+        console.log("PGA event call failed!");
+        callback(null);
 
-    } else {
+      } else {
 
-      var scores = eventdata.scores;
+        var scores = eventdata.scores;
 
-      for (var i = 0; i < scores.length; i++) {
-        var score = scores[i];
-        var score_details = {};
+        for (var i = 0; i < scores.length; i++) {
+          var score = scores[i];
+          var score_details = {};
 
-        console.log("round_details " + JSON.stringify(score.round_details));
+          console.log("round_details " + JSON.stringify(score.round_details));
 
-        score_details.holeStats = perHoleScoring(score.round_details);
-        score_details.positionStats = positionScoring(score.pos);
-        score_details.streakStats = streakScoring(score.round_details);
+          score_details.holeStats = perHoleScoring(score.round_details);
+          score_details.positionStats = positionScoring(score.pos);
+          score_details.streakStats = streakScoring(score.round_details);
 
-        score_details.multiplier = (eventdata.major) ? 2 : 1; // Major tournamnets are 2x
+          score_details.multiplier = (eventdata.major) ? 2 : 1; // Major tournamnets are 2x
 
-        score_details.total = (score_details.holeStats.score +
-          score_details.positionStats.score +
-          score_details.streakStats.score) * score_details.multiplier;
+          score_details.total = (score_details.holeStats.score +
+            score_details.positionStats.score +
+            score_details.streakStats.score) * score_details.multiplier;
 
-        score.score_details = score_details;
+          score.score_details = score_details;
+        }
+
+        callback(eventdata);
       }
-
-      callback(eventdata);
-    }
-  });
+    })
+    .catch((e) => {
+      callback(null);
+    })
 
 };

@@ -5,7 +5,7 @@ var Storage = require('../utils/storage.js');
 var Config = require('../utils/config.js');
 
 var config = new Config();
-var golfChannelArchive = new Storage(config.archive.getGolfChannelBucket());
+var archive = new Storage(config.archive.getGolfChannelBucket());
 
 /**
  * get prior years Golf Channel data from the archive
@@ -25,14 +25,14 @@ var GolfChannelArchive = function (tour, year, pageCache) {
     this.getEventId = function (eventid) {
         // create a unique id we can use for caching and for 
         // searching the archives
-        var id = config.archive.getTourEventId(year, tour, eventid);
+        const id = config.archive.getTourEventId(year, tour, eventid);
         return id;
     }
 
     this.getScheduleId = function () {
         // create a unique id we can use for caching and for 
         // searching the archives
-        var id = config.archive.getTourScheduleId(year, tour);
+        const id = config.archive.getTourScheduleId(year, tour);
         return id;
     }
 
@@ -40,28 +40,28 @@ var GolfChannelArchive = function (tour, year, pageCache) {
      * go get the tournament data
      * check cache, then archive
      */
-    this.getEvent = function (eventid, details, cb) {
-        var id = this.getEventId(eventid);
-        var eventData = new EventData(details);
+    this.getEvent = function (eventid, details) {
+        return new Promise((resolve, reject) => {
+            const id = this.getEventId(eventid);
+            const eventData = new EventData(details);
 
-        var tournament_data = pageCache.get(id);
-
-        // check cache first, return that if we have it already
-        if (tournament_data) {
-            process.nextTick(function () {
+            // check cache first, return that if we have it already
+            const tournament_data = pageCache.get(id);
+            if (tournament_data) {
                 // need to post process golf channel data before
                 // returning it
-                var records = eventData.normalize(tournament_data);
-                cb(records);
-            });
-        } else {
-            // go to the archives next
-            golfChannelArchive.exists(id)
+                const records = eventData.normalize(tournament_data);
+                resolve(records);
+                return;
+            }
+
+            // not cached, go to the archives
+            archive.exists(id)
                 .then((result) => {
                     if (result) {
                         console.log("found item in archive!");
 
-                        golfChannelArchive.get(id)
+                        archive.get(id)
                             .then((tournament_data) => {
                                 if (tournament_data) {
                                     // save it in the cache for next time
@@ -70,43 +70,50 @@ var GolfChannelArchive = function (tour, year, pageCache) {
 
                                 // need to post process golf channel data before
                                 // returning it
-                                var records = eventData.normalize(tournament_data);
-                                cb(records);
+                                const records = eventData.normalize(tournament_data);
+                                resolve(records);
+                            })
+                            .catch((e) => {
+                                reject(e);
                             });
                     } else {
-                        console.log("no archive item found!");
-                        cb(null);
+                        // no archive found, return null as the result
+                        const str = "no archive item found!";
+                        console.log(str);
+                        resolve(null);
                     }
+                })
+                .catch((e) => {
+                    reject(e);
                 });
-        }
+        });
     };
 
     /**
      * check cache, then archive
      */
-    this.getSchedule = function (cb) {
-        const scheduleData = new ScheduleData(tour, year);
-        const id = this.getScheduleId();
+    this.getSchedule = function () {
+        return new Promise((resolve, reject) => {
+            const scheduleData = new ScheduleData(tour, year);
+            const id = this.getScheduleId();
 
-        var tournament_data = pageCache.get(id);
-
-        // check cache first, return that if we have it already
-        if (tournament_data) {
-            process.nextTick(function () {
+            // check cache first, return that if we have it already
+            const tournament_data = pageCache.get(id);
+            if (tournament_data) {
                 // need to post process golf channel data before
                 // returning it
-                var records = scheduleData.normalize(tournament_data);
-                cb(records);
-            });
-        } else {
+                const records = scheduleData.normalize(tournament_data);
+                resolve(records);
+                return;
+            }
 
-            // go to the archives next
-            golfChannelArchive.exists(id)
+            // no cache, go to the archives
+            archive.exists(id)
                 .then((result) => {
                     if (result) {
                         console.log("found item in archive!");
 
-                        golfChannelArchive.get(id)
+                        archive.get(id)
                             .then((tournament_data) => {
                                 if (tournament_data) {
                                     // save it in the cache for next time
@@ -115,103 +122,123 @@ var GolfChannelArchive = function (tour, year, pageCache) {
 
                                 // need to post process golf channel data before
                                 // returning it
-                                var records = scheduleData.normalize(tournament_data);
-                                cb(records);
+                                const records = scheduleData.normalize(tournament_data);
+                                resolve(records);
+                            })
+                            .catch((e) => {
+                                reject(e);
                             });
                     } else {
-                        console.log("no archive item found!");
-                        cb(null);
+                        // no archive found, return null as the result
+                        const str = "no archive item found!";
+                        console.log(str);
+                        resolve(null);
                     }
+                })
+                .catch((e) => {
+                    reject(e);
                 });
-        }
+        });
     };
 
     /**
      * store the event info in the archive
      */
-    this.putEvent = function (eventid, tournament_data, cb) {
-        const id = this.getEventId(eventid);
-        const eventData = new EventData(true);
+    this.putEvent = function (eventid, tournament_data) {
+        return new Promise((resolve, reject) => {
+            const id = this.getEventId(eventid);
+            const eventData = new EventData(true);
 
-        console.log("Archiving event " + id);
+            console.log("Archiving event " + id);
 
-        // go get content from the web and store result
-        golfChannelArchive.put(id, tournament_data)
-            .then((result) => {
-                console.log("archived event " + id);
+            // go get content from the web and store result
+            archive.put(id, tournament_data)
+                .then((result) => {
+                    console.log("archived event " + id);
 
-                // need to post process golf channel data before
-                // returning it
-                var records = eventData.normalize(tournament_data);
-                cb(records);
-            })
-            .catch((e) => {
-                console.log("archiveEvent: Error! " + JSON.stringify(e));
-                cb(null);
-            });
+                    // need to post process golf channel data before
+                    // returning it
+                    var records = eventData.normalize(tournament_data);
+                    resolve(records);
+                })
+                .catch((e) => {
+                    const str = "archiveEvent: Error! " + JSON.stringify(e);
+                    console.log(str);
+                    reject(str);
+                });
+        });
     };
 
     /**
      * store the schedule info in the archive
      */
-    this.putSchedule = function (tournament_data, cb) {
-        const id = this.getScheduleId();
-        const scheduleData = new ScheduleData(tour, year);
+    this.putSchedule = function (tournament_data) {
+        return new Promise((resolve, reject) => {
+            const id = this.getScheduleId();
+            const scheduleData = new ScheduleData(tour, year);
 
-        // go get it from the web and store result
-        golfChannelArchive.put(id, tournament_data)
-            .then((result) => {
-                console.log("stored key " + id);
+            // store result
+            archive.put(id, tournament_data)
+                .then((result) => {
+                    console.log("stored key " + id);
 
-                // need to post process golf channel data before
-                // returning it
-                var records = scheduleData.normalize(tournament_data);
-                cb(records);
-            })
-            .catch((e) => {
-                console.log("archiveEvent: Error! " + JSON.stringify(e));
-                cb(null);
-            });
+                    // need to post process golf channel data before
+                    // returning it
+                    var records = scheduleData.normalize(tournament_data);
+                    resolve(records);
+                })
+                .catch((e) => {
+                    const str = "archiveEvent: Error! " + JSON.stringify(e);
+                    console.error(str);
+                    reject(str);
+                });
+        });
 
     };
 
     /**
      * check if we've archived the event previously
-     * 
-     * @returns true if the schedule exists in the archive, false otherwise
+     * resolves to true if it exists, false otherwise
      */
-    this.isEventArchived = function (eventid, cb) {
-        var id = this.getEventId(eventid);
+    this.isEventArchived = function (eventid) {
+        return new Promise((resolve, reject) => {
+            const id = this.getEventId(eventid);
 
-        // go to the archives next
-        golfChannelArchive.exists(id)
-            .then((result) => {
-                if (result) {
-                    cb(true);
-                } else {
-                    cb(false);
-                }
-            });
-
+            // go to the archives next
+            archive.exists(id)
+                .then((result) => {
+                    if (result) {
+                        resolve(true);
+                    } else {
+                        resolve(false);
+                    }
+                }).catch((e) => {
+                    reject(e);
+                });
+        });
     };
 
     /**
      * check if we've archived this season already
-     * 
-     * @returns true if the schedule exists in the archive, false otherwise
+     * resolves to true if it exists, false otherwise
      */
-    this.isScheduleArchived = function (cb) {
-        var id = this.getScheduleId();
+    this.isScheduleArchived = function () {
+        return new Promise((resolve, reject) => {
+            const id = this.getScheduleId();
 
-        // go to the archives next
-        golfChannelArchive.exists(id)
-            .then((result) => {
-                if (result) {
-                    cb(true);
-                } else {
-                    cb(false);
-                }
-            });
+            // go to the archives next
+            archive.exists(id)
+                .then((result) => {
+                    if (result) {
+                        resolve(true);
+                    } else {
+                        resolve(false);
+                    }
+                })
+                .catch((e) => {
+                    reject(e);
+                });
+        });
 
     };
 }

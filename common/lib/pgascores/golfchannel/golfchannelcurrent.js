@@ -40,35 +40,45 @@ var GolfChannelCurrent = function (tour, year, pageCache) {
      * @param {string} eventid 
      * @param {Function} callback 
      */
-    this.getEventFromWeb = function (eventid, callback) {
+    this.getEventFromWeb = function (eventid) {
+        return new Promise((resolve, reject) => {
+            this.getSchedule()
+                .then((results) => {
+                    if (results == null) {
+                        const str = "getSchedule() failed!";
+                        console.log(str);
+                        reject(str);
+                        return;
+                    }
 
-        this.getSchedule(function (results) {
-            if (results == null) {
-                console.log("getSchedule() failed!");
-                callback(null);
+                    if (eventid >= results.length) {
+                        const str = "error!  invalid event id found!";
+                        console.log(str);
+                        reject(str);
+                        return;
+                    }
 
-            } else {
+                    const result = results[eventid];
 
-                if (eventid >= results.length) {
-                    console.log("error!  invalid event id found!");
-                    callback(null);
-                    return;
-                }
+                    console.log("found id " + result.tournament.id + " for event " + eventid);
 
-                var result = results[eventid];
+                    const gcid = result.tournament.id; // golf channel id
+                    const url = "https://www.golfchannel.com/tournament/" + gcid;
 
-                console.log("found id " + result.tournament.id + " for event " + eventid);
+                    console.log("event url " + url);
 
-                var gcid = result.tournament.id; // golf channel id
-                const url = "https://www.golfchannel.com/tournament/" + gcid;
-
-                console.log("event url " + url);
-
-                // no cache or archive hit, go to the web
-                page.getEvent(url, function (tournament_data) {
-                    callback(tournament_data);
+                    // no cache or archive hit, go to the web
+                    page.getEvent(url)
+                        .then((tournament_data) => {
+                            resolve(tournament_data);
+                        })
+                        .catch((e) => {
+                            reject(e);
+                        })
+                })
+                .catch((e) => {
+                    reject(e);
                 });
-            }
         });
     };
 
@@ -96,114 +106,152 @@ var GolfChannelCurrent = function (tour, year, pageCache) {
      * go get the tournament data
      * check cache, archive, and finally the URL
      */
-    this.getEvent = function (eventid, details, cb) {
-        const self = this;
+    this.getEvent = function (eventid, details) {
+        return new Promise((resolve, reject) => {
+            const self = this;
 
-        // look in the archive first, then go to web if necessary
-        archive.getEvent(eventid, details, function (result) {
-            if (result) {
-                cb(result);
-            } else {
-                var id = archive.getEventId(eventid);
-                var eventData = new EventData(details);
+            // look in the archive first, then go to web if necessary
+            archive.getEvent(eventid, details)
+                .then((result) => {
+                    if (result) {
+                        resolve(result);
+                    } else {
+                        const id = archive.getEventId(eventid);
+                        const eventData = new EventData(details);
 
-                console.log("no archive item found, going to web");
-                self.getEventFromWeb(eventid, function (tournament_data) {
-                    // need to post process golf channel data before
-                    // returning it
-                    var records = eventData.normalize(tournament_data);
+                        console.log("no archive item found, going to web");
+                        self.getEventFromWeb(eventid)
+                            .then((tournament_data) => {
+                                // need to post process golf channel data before
+                                // returning it
+                                const records = eventData.normalize(tournament_data);
 
-                    if (records) {
-                        // if we parsed the data correctly, 
-                        // save it in the cache for next time
-                        pageCache.put(id, tournament_data);
+                                if (records) {
+                                    // if we parsed the data correctly, 
+                                    // save it in the cache for next time
+                                    pageCache.put(id, tournament_data);
+                                }
+                                resolve(records);
+                            })
+                            .catch((e) => {
+                                reject(e);
+                            });
                     }
-                    cb(records);
+                })
+                .catch((e) => {
+                    reject(e);
                 });
-            }
         });
     };
 
     /**
      * check cache, archive, and finally the URL
      */
-    this.getSchedule = function (cb) {
-        const url = this.getScheduleUrl();
-        const id = archive.getScheduleId();
-        const scheduleData = new ScheduleData(tour, year);
+    this.getSchedule = function () {
+        return new Promise((resolve, reject) => {
+            const url = this.getScheduleUrl();
+            const id = archive.getScheduleId();
+            const scheduleData = new ScheduleData(tour, year);
 
-        // look in the archive first, then go to web if necessary
-        archive.getSchedule(function (result) {
-            if (result) {
-                cb(result);
-            } else {
-                console.log("no archive item found, going to web");
+            // look in the archive first, then go to web if necessary
+            archive.getSchedule()
+                .then((result) => {
+                    if (result) {
+                        resolve(result);
+                    } else {
+                        console.log("no archive item found, going to web");
 
-                // no cache or archive hit, go to the web
-                page.getSchedule(url, function (tournament_data) {
-                    // need to post process golf channel data before
-                    // returning it
-                    var records = scheduleData.normalize(tournament_data);
+                        // no cache or archive hit, go to the web
+                        page.getSchedule(url)
+                            .then((tournament_data) => {
+                                // need to post process golf channel data before
+                                // returning it
+                                const records = scheduleData.normalize(tournament_data);
 
-                    if (records) {
-                        // if we parsed the data correctly, 
-                        // save it in the cache for next time
-                        pageCache.put(id, tournament_data);
+                                if (records) {
+                                    // if we parsed the data correctly, 
+                                    // save it in the cache for next time
+                                    pageCache.put(id, tournament_data);
+                                }
+                                resolve(records);
+                            })
+                            .catch((e) => {
+                                reject(e);
+                            })
                     }
-                    cb(records);
-                });
-            }
+                })
+                .catch((e) => {
+                    reject(e);
+                })
         });
     };
 
     /**
      * check if we've archived the event previously
-     * 
-     * @returns true if the schedule exists in the archive, false otherwise
+     * Promise resolves if true, rejects otherwise
      */
-    this.isEventArchived = function (eventid, cb) {
-        archive.isEventArchived(eventid, cb);
+    this.isEventArchived = function (eventid) {
+        return archive.isEventArchived(eventid);
     };
 
     /**
      * check if we've archived this season already
-     * 
-     * @returns true if the schedule exists in the archive, false otherwise
+     * Promise resolves if true, rejects otherwise
      */
-    this.isScheduleArchived = function (cb) {
-        archive.isScheduleArchived(cb);
+    this.isScheduleArchived = function () {
+        return archive.isScheduleArchived();
     };
 
     /**
      * go get event from the web and put it in the archive
      */
-    this.archiveEvent = function (eventid, cb) {
-
-        // go get content from the web and store result
-        this.getEventFromWeb(eventid, function (tournament_data) {
-            if (tournament_data) {
-                archive.putEvent(eventid, tournament_data, function (result) {
-                    cb(result);
-                });
-            }
+    this.archiveEvent = function (eventid) {
+        return new Promise((resolve, reject) => {
+            // go get content from the web and store result
+            this.getEventFromWeb(eventid)
+                .then((tournament_data) => {
+                    if (tournament_data) {
+                        archive.putEvent(eventid, tournament_data)
+                            .then((result) => {
+                                resolve(result);
+                            })
+                            .catch((e) => {
+                                reject(e);
+                            })
+                    } else {
+                        reject("Invalid tournament data");
+                    }
+                })
+                .catch((e) => {
+                    reject(e);
+                })
         });
     };
 
     /**
      * go get schedule from the web and put it in the archive
      */
-    this.archiveSchedule = function (cb) {
-        const url = this.getScheduleUrl();
+    this.archiveSchedule = function () {
+        return new Promise((resolve, reject) => {
+            const url = this.getScheduleUrl();
 
-        // go get it from the web and store result
-        page.getSchedule(url, function (tournament_data) {
-            if (tournament_data) {
-                archive.putSchedule(tournament_data, function (result) {
-                    cb(result);
+            // go get it from the web and store result
+            page.getSchedule(url)
+                .then((tournament_data) => {
+                    if (tournament_data) {
+                        archive.putSchedule(tournament_data)
+                            .then((result) => {
+                                resolve(result);
+                            })
+                            .catch((e) => {
+                                reject(e);
+                            })
+                    }
                 })
-            }
+                .catch((e) => {
+                    reject(e);
+                })
         });
-
     };
 }
 

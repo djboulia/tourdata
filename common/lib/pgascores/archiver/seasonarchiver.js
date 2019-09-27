@@ -1,16 +1,18 @@
-//
-// attempt to archive the given season by going to the golf channel site
-// for any prior tournaments in the year that have not yet been archived
-//
+/**
+ * attempt to archive the given season by going to the golf channel site
+ * for any prior tournaments in the year that have not yet been archived
+ */
 
 var GolfChannel = require('../golfchannel/golfchannelcurrent.js');
 
-//
-// compare just the year/month/day and return true if the date
-// is the current date or earlier
-//
+/**
+ * compare just the year/month/day and return true if the date
+ * is the current date or earlier
+ * 
+ * @param {Date} date javascript date object
+ */
 var inThePast = function (date) {
-    var now = new Date();
+    const now = new Date();
 
     if (date.getFullYear() < now.getFullYear()) {
         return true;
@@ -35,9 +37,9 @@ var inThePast = function (date) {
 };
 
 var isTournamentComplete = function (tourStop) {
-    var endDate = new Date(tourStop.endDate);
+    const endDate = new Date(tourStop.endDate);
 
-    var complete = inThePast(endDate);
+    const complete = inThePast(endDate);
 
     console.log("Tournament end date: " + tourStop.endDate + ", complete=" + complete);
 
@@ -47,28 +49,37 @@ var isTournamentComplete = function (tourStop) {
 var archiveEventIfNecessary = function (golfChannel, eventid) {
     return new Promise((resolve, reject) => {
 
-        golfChannel.isEventArchived(eventid, function (result) {
-            if (result) {
-                // already in the cache, don't need to do anything
-                // console.log("Found entry for event " + id + "!");
+        golfChannel.isEventArchived(eventid)
+            .then((result) => {
+                if (result) {
+                    // already in the archive, don't need to do anything
+                    // console.log("Found entry for event " + id + "!");
 
-                resolve(false); // already in the cache, no archive necessary
-            } else {
-                golfChannel.archiveEvent(eventid, function (results) {
-                    resolve(results != null);
-                });
-            }
-        })
+                    resolve(false);
+                } else {
+                    // not in the archive, go store it
+                    golfChannel.archiveEvent(eventid)
+                        .then((results) => {
+                            resolve(results != null);
+                        })
+                        .catch((e) => {
+                            reject(e);
+                        })
+                }
+            })
+            .catch((e) => {
+                reject(e);
+            })
     });
 };
 
 var archiveSeason = function (golfChannel, results) {
     return new Promise((resolve, reject) => {
-        var promises = [];
+        const promises = [];
 
         // use schedule to start rolling through the season
         for (var eventid = 0; eventid < results.length; eventid++) {
-            var result = results[eventid];
+            const result = results[eventid];
 
             // if the tournament is complete, see if we have it in archive
             if (isTournamentComplete(result)) {
@@ -89,38 +100,57 @@ var archiveSeason = function (golfChannel, results) {
     });
 }
 
+/**
+ * Public interface.
+ * Archives a given tour season and its completed events 
+ * 
+ * @param {String} tour type of pro tour. PGA is the only tour currently supported
+ */
 var SeasonArchiver = function (tour) {
+
+    /**
+     * Will check to see if the season and events are currently archived.
+     * If not, will then make sure the event has already completed and is 
+     * therefore eligible for archiving.
+     */
     this.archive = function (year) {
 
         // attempt to get the schedule from the archive
-        var golfChannel = new GolfChannel(tour, year);
+        const golfChannel = new GolfChannel(tour, year);
 
-        var now = new Date();
+        const now = new Date();
         console.log("Beginning season archive at " + now.toString());
 
-        golfChannel.isScheduleArchived(function (result) {
-            if (result) {
-                console.log("Found entry for year " + year + "!");
+        golfChannel.isScheduleArchived()
+            .then((result) => {
+                if (result) {
+                    console.log("Found entry for year " + year + "!");
 
-                golfChannel.getSchedule(function (records) {
-                    if (records) {
+                    golfChannel.getSchedule()
+                        .then((records) => {
+                            if (records) {
+                                // now parse through the rest of the schedule
+                                archiveSeason(golfChannel, records);
+                            }
+                        })
+                } else {
+                    console.log("No archive for year " + year);
 
-                        // now parse through the rest of the schedule
-                        archiveSeason(golfChannel, records);
-                    }
-                });
-            } else {
-                console.log("No archive for year " + year);
-
-                // didn't find it in the archive, archive it
-                golfChannel.archiveSchedule(function (records) {
-
-                    // now parse through the rest of the schedule
-                    archiveSeason(golfChannel, records);
-
-                });
-            }
-        });
+                    // didn't find it in the archive, archive it
+                    golfChannel.archiveSchedule()
+                        .then((records) => {
+                            // now parse through the rest of the schedule
+                            archiveSeason(golfChannel, records);
+                        })
+                        .catch((e) => {
+                            console.error("Couldn't archive schedule for year " + year);
+                            console.error(e);
+                        })
+                }
+            })
+            .catch((e) => {
+                reject(e);
+            });
     }
 };
 

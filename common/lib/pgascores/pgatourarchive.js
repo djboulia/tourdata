@@ -19,7 +19,7 @@ var PGATourArchive = function (tour, year, pageCache) {
         // create a unique id we can use for caching and for 
         // searching the archives
 
-        var id = config.archive.getTourEventId(year, tour, eventid);
+        const id = config.archive.getTourEventId(year, tour, eventid);
         return id;
     };
 
@@ -27,21 +27,21 @@ var PGATourArchive = function (tour, year, pageCache) {
         // create a unique id we can use for caching and for 
         // searching the archives
 
-        var id = config.archive.getTourScheduleId(year, tour);
+        const id = config.archive.getTourScheduleId(year, tour);
         return id;
     };
 
-    this.getEvent = function (eventid, cb) {
-        var id = this.getEventId(eventid);
+    this.getEvent = function (eventid) {
+        return new Promise((resolve, reject) => {
+            const id = this.getEventId(eventid);
 
-        var records = pageCache.get(id);
+            // check cache first, return that if we have it already
+            const records = pageCache.get(id);
 
-        // check cache first, return that if we have it already
-        if (records) {
-            process.nextTick(function () {
-                cb(records);
-            });
-        } else {
+            if (records) {
+                resolve(records);
+                return;
+            }
 
             // go to the archives next
             archive.exists(id)
@@ -56,28 +56,34 @@ var PGATourArchive = function (tour, year, pageCache) {
                                     pageCache.put(id, records);
                                 }
 
-                                cb(records);
-                            });
+                                resolve(records);
+                            })
+                            .catch((e) => {
+                                reject(e);
+                            });            
                     } else {
                         console.log("no archive item found!");
-                        cb(null);
+                        resolve(null);
                     }
+                })
+                .catch((e) => {
+                    reject(e);
                 });
-        }
+        });
     };
 
-    this.getSchedule = function (cb) {
-        var id = this.getScheduleId();
+    this.getSchedule = function () {
+        return new Promise((resolve, reject) => {
+            const id = this.getScheduleId();
 
-        var records = pageCache.get(id);
+            // check cache first, return that if we have it already
+            const records = pageCache.get(id);
 
-        // check cache first, return that if we have it already
-        if (records) {
-            process.nextTick(function () {
+            if (records) {
                 records = records.season;
-                cb(records);
-            });
-        } else {
+                resolve(records);
+                return;
+            }
 
             // go to the archives next
             archive.exists(id)
@@ -93,14 +99,20 @@ var PGATourArchive = function (tour, year, pageCache) {
                                 }
 
                                 records = records.season;
-                                cb(records);
+                                resolve(records);
+                            })
+                            .catch((e) => {
+                                reject(e);
                             });
                     } else {
                         console.log("no archive item found!");
-                        cb(null);
+                        resolve(null);
                     }
+                })
+                .catch((e) => {
+                    reject(e);
                 });
-        }
+        });
     };
 };
 

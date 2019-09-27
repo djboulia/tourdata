@@ -1,7 +1,6 @@
-
 var libPath = '../../common/lib';
 var pgaLibPath = libPath + '/pgascores';
-var Tournaments = require(pgaLibPath + '/tournaments.js')
+var TourDataProvider = require(pgaLibPath + '/tourdataprovider.js')
 
 var Logger = require(libPath + '/utils/logger.js');
 logger = new Logger(false);
@@ -24,11 +23,16 @@ module.exports = function (Tournament) {
         var str = "searching for tournaments in year " + year + " and tour " + tour;
         logger.log(str);
 
-        Tournaments.search(tour, year, function (results) {
-            logger.debug(JSON.stringify(results));
+        var provider = new TourDataProvider(tour, year);
+        provider.getSchedule()
+            .then((results) => {
+                logger.debug(JSON.stringify(results));
 
-            cb(null, results);
-        });
+                cb(null, results);
+            })
+            .catch((e) => {
+                cb(e, null);
+            });
     };
 
     Tournament.remoteMethod(
@@ -39,8 +43,7 @@ module.exports = function (Tournament) {
             },
             description: 'Search for tournaments',
 
-            accepts: [
-                {
+            accepts: [{
                     arg: 'tour',
                     type: 'string',
                     description: 'Tour name, e.g. PGA, European',
@@ -79,13 +82,13 @@ module.exports = function (Tournament) {
             logger.debug('beforeRemote: found tour= ' + tour);
 
             switch (tour.toLowerCase()) {
-            case 'pga':
-            case 'european':
-                break;
+                case 'pga':
+                case 'european':
+                    break;
 
-            default:
-                next(new Error('Invalid value for tour: ' + tour));
-                return;
+                default:
+                    next(new Error('Invalid value for tour: ' + tour));
+                    return;
             }
         } else {
             next(new Error("Couldn't find tour search argument!"));
@@ -100,7 +103,7 @@ module.exports = function (Tournament) {
             // next  year's PGA tour season starts in September of the
             // year before... so once we hit September, allow next
             // year as a valid year.
-            var maxYear = (thisMonth >= 8) ? thisYear +1 : thisYear;
+            var maxYear = (thisMonth >= 8) ? thisYear + 1 : thisYear;
 
             if (year < 2003 || year > maxYear) {
                 next(new Error("Invalid year " + year));
@@ -118,16 +121,19 @@ module.exports = function (Tournament) {
 
     Tournament.scores = function (tour, year, event, details, cb) {
 
-      var str = "getting scores for year " + year + " tour " + tour + " event " + event + " details " + details;
+        var str = "getting scores for year " + year + " tour " + tour + " event " + event + " details " + details;
 
         logger.log(str);
 
-        Tournaments.getEvent(tour, year, event, details, function (results) {
-//            logger.debug(JSON.stringify(results));
-
-            cb(null, results);
-        });
-
+        var provider = new TourDataProvider(tour, year);
+        provider.getEvent(event, details)
+            .then((results) => {
+                //            logger.debug(JSON.stringify(results));
+                cb(null, results);
+            })
+            .catch((e) => {
+                cb(e, null);
+            })
     };
 
 
@@ -139,8 +145,7 @@ module.exports = function (Tournament) {
             },
             description: 'Get golfer scores for this event',
 
-            accepts: [
-                {
+            accepts: [{
                     arg: 'tour',
                     type: 'string',
                     description: 'pga or european',
