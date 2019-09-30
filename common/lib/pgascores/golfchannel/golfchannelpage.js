@@ -165,7 +165,7 @@ var getTournamentData = function ($) {
         tournament_data = JSON.parse(tournament_string);
     } catch (err) {
         console.log(err);
-        console.log("tournament_string " + tournament_string);
+        // console.log("tournament_string " + tournament_string);
 
         tournament_data = null;
     }

@@ -207,17 +207,26 @@ var GolfChannelCurrent = function (tour, year, pageCache) {
      */
     this.archiveEvent = function (eventid) {
         return new Promise((resolve, reject) => {
+            const eventData = new EventData(false);
+
             // go get content from the web and store result
             this.getEventFromWeb(eventid)
                 .then((tournament_data) => {
                     if (tournament_data) {
-                        archive.putEvent(eventid, tournament_data)
-                            .then((result) => {
-                                resolve(result);
-                            })
-                            .catch((e) => {
-                                reject(e);
-                            })
+                        // make sure the tournament_data is valid
+                        const records = eventData.normalize(tournament_data);
+
+                        if (records) {
+                            archive.putEvent(eventid, tournament_data)
+                                .then((result) => {
+                                    resolve(result);
+                                })
+                                .catch((e) => {
+                                    reject(e);
+                                })
+                        } else {
+                            reject("archiveEvent failed: invalid tournament_data found");
+                        }
                     } else {
                         reject("Invalid tournament data");
                     }
@@ -234,18 +243,26 @@ var GolfChannelCurrent = function (tour, year, pageCache) {
     this.archiveSchedule = function () {
         return new Promise((resolve, reject) => {
             const url = this.getScheduleUrl();
+            const scheduleData = new ScheduleData(tour, year);
 
             // go get it from the web and store result
             page.getSchedule(url)
                 .then((tournament_data) => {
                     if (tournament_data) {
-                        archive.putSchedule(tournament_data)
+                        // make sure the schedule is valid
+                        const records = scheduleData.normalize(tournament_data);
+
+                        if (records) {
+                            archive.putSchedule(tournament_data)
                             .then((result) => {
                                 resolve(result);
                             })
                             .catch((e) => {
                                 reject(e);
                             })
+                        } else {
+                            reject("archiveSchedule failed! Invalid schedule data!");
+                        }
                     }
                 })
                 .catch((e) => {

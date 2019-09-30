@@ -85,7 +85,8 @@ var EventData = function (includeDetails) {
         if (!tournament_data || !tournament_data.event ||
             !tournament_data.event.name) 
         {
-            console.log("EventData.normalize: invalid tournament_data: " + JSON.stringify(tournament_data));
+            // console.log("EventData.normalize: invalid tournament_data: " + JSON.stringify(tournament_data));
+            console.log("EventData.normalize: invalid tournament_data: no event or event name");
             return null;
         }
 
@@ -95,7 +96,7 @@ var EventData = function (includeDetails) {
         // check that first before we load up the players
         if (!tournament_data.leaderboard || !tournament_data.leaderboard.golfers) {
             console.log("Couldn't find golfer data!!");
-            console.log(JSON.stringify(tournament_data.leaderboard));
+            // console.log(JSON.stringify(tournament_data.leaderboard));
             return null;
         }
 
