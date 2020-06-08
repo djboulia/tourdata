@@ -1,5 +1,6 @@
 var Cache = require('./utils/cache.js');
 var GolfChannelTourData = require('./golfchannel/golfchannelcurrent.js');
+var GolfChannel2019 = require('./golfchannel/golfchannelarchive2019.js');
 var PGATourData = require('./pgatourarchive.js');
 var EventUtils = require('./utils/eventutils.js');
 
@@ -21,9 +22,9 @@ var normalizeTourName = function (tour) {
         case 'pga':
             tourname = 'pga-tour';
             break;
-        // case 'european':
-        //     tourname = 'european-tour';
-        //     break;
+            // case 'european':
+            //     tourname = 'european-tour';
+            //     break;
         default:
             console.error("Invalid tour name " + tour);
     }
@@ -109,10 +110,15 @@ var TourDataProvider = function (tour, year) {
     const tourName = normalizeTourName(tour);
 
     const pgaTourData = new PGATourData(tourName, year, pgaArchiveCache);
+    const golfChannel2019 = new GolfChannel2019(tourName, year, golfChannelCache);
     const golfChannelTourData = new GolfChannelTourData(tourName, year, golfChannelCache);
 
     var isGolfChannel = function () {
-        return year >= 2019;
+        return year >= 2020;
+    };
+
+    var isGolfChannel2019 = function () {
+        return year === 2019;
     };
 
     var isPGATour = function () {
@@ -137,6 +143,8 @@ var TourDataProvider = function (tour, year) {
     var getScheduleFromProvider = function () {
         if (isGolfChannel()) {
             return golfChannelTourData.getSchedule();
+        } else if (isGolfChannel2019()) {
+            return golfChannel2019.getSchedule();
         } else if (isPGATour()) {
             return pgaTourData.getSchedule();
         } else {
@@ -155,6 +163,8 @@ var TourDataProvider = function (tour, year) {
     var getEventFromProvider = function (eventid, details, cb) {
         if (isGolfChannel()) {
             return golfChannelTourData.getEvent(eventid, details);
+        } else if (isGolfChannel2019()) {
+            return golfChannel2019.getEvent(eventid, details);
         } else if (isPGATour()) {
             if (details) {
                 // old PGA tour site data didn't provide per hole details

@@ -181,6 +181,10 @@ var getTournamentData = function ($) {
  * the get the variable data and unescape it.  After all of that, it
  * can be parsed into a javascript object.
  * 
+ * [djb 06/05/2020] 
+ * In mid 2020, the golf channel went to a much easier JSON based approach
+ * So we don't need to do any funky parsing of the SCRIPT tag in a page.
+ * 
  * @param {String} page content of the page
  */
 var parseEvent = function (page) {
@@ -191,17 +195,14 @@ var parseEvent = function (page) {
             return;
         }
 
-        //
-        // parse the html to get at the tournament data
-        //
-        const $ = cheerio.load(page);
+        try {
+            const event = JSON.parse(page);
+            resolve(event);
+        } catch (err) {
+            console.log(err);
+            console.log("page " + page);
 
-        const tournament_data = getTournamentData($);
-
-        if (tournament_data != null) {
-            resolve(tournament_data);
-        } else {
-            reject("Couldn't parse tournament data");
+            reject(err);
         }
     });
 }
@@ -215,6 +216,11 @@ var parseEvent = function (page) {
  * The new schedule format is an escaped string of JSON.  We unpack
  * that here
  * 
+ * [djb 06/05/2020]
+ * In mid 2020, yet another change occurred which moved the data
+ * we're looking for to straight JSON.  Therefore we no longer have to 
+ * parse the weird unescaped strings inside the html page.
+ * 
  * @param {String} page content of the page
  */
 var parseSchedule = function (page) {
@@ -226,43 +232,14 @@ var parseSchedule = function (page) {
             return;
         }
 
-        // page content for the schedule should be a string, so look 
-        // for starting and ending quotes
-        if (page.startsWith('"') && page.endsWith('"')) {
+        try {
+            const schedule = JSON.parse(page);
+            resolve(schedule);
+        } catch (err) {
+            console.log(err);
+            console.log("page " + page);
 
-            // lop off beginning and ending quotes of the string
-            const data = page.slice(1, -1);
-            const schedule_string = unescapeString(data);
-
-            let schedule_data = null;
-
-            try {
-                const eventsObj = JSON.parse(schedule_string);
-
-                // a previous schedule format named the top level
-                // object "tourEvents".  the new format calls this
-                // "events".  return the array as tourEvents to 
-                // preserve backward compatibility with the rest of the code
-                if (eventsObj.events) {
-                    schedule_data = {};
-                    schedule_data.tourEvents = eventsObj.events;
-                    console.log("schedule_data: " + schedule_string);
-
-                    resolve(schedule_data);
-                } else {
-                    reject("Error!  No events object found: " + schedule_string);
-                }
-
-            } catch (err) {
-                console.log(err);
-                console.log("tournament_string " + schedule_string);
-
-                schedule_data = null;
-                reject(err);
-            }
-
-        } else {
-            reject("Invalid schedule format: " + page);
+            reject(err);
         }
     });
 }

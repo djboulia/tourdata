@@ -31,55 +31,16 @@ var GolfChannelCurrent = function (tour, year, pageCache) {
 
     const archive = new GolfChannelArchive(tour, year, pageCache);
 
-    /**
-     * translate between our event ids and the Golf Channel site
-     * we do this by looking up the tour schedule from the golf channel, finding
-     * the event that matches, then looking up the event via the url that the 
-     * Golf Channel expects
-     * 
-     * @param {string} eventid 
-     * @param {Function} callback 
-     */
-    this.getEventFromWeb = function (eventid) {
-        return new Promise((resolve, reject) => {
-            this.getSchedule()
-                .then((results) => {
-                    if (results == null) {
-                        const str = "getSchedule() failed!";
-                        console.log(str);
-                        reject(str);
-                        return;
-                    }
+    const baseUrl = "https://www.golfchannel.com";
 
-                    if (eventid >= results.length) {
-                        const str = "error!  invalid event id found!";
-                        console.log(str);
-                        reject(str);
-                        return;
-                    }
+    this.getEventUrl = function (id) {
+        //
+        // [djb 06/05/2020] Changed in mid 2020 season... prior URL:
+        //                  const url = baseUrl + "/tournament/" + id;
 
-                    const result = results[eventid];
-
-                    console.log("found id " + result.tournament.id + " for event " + eventid);
-
-                    const gcid = result.tournament.id; // golf channel id
-                    const url = "https://www.golfchannel.com/tournament/" + gcid;
-
-                    console.log("event url " + url);
-
-                    // no cache or archive hit, go to the web
-                    page.getEvent(url)
-                        .then((tournament_data) => {
-                            resolve(tournament_data);
-                        })
-                        .catch((e) => {
-                            reject(e);
-                        })
-                })
-                .catch((e) => {
-                    reject(e);
-                });
-        });
+        const url = baseUrl + "/api/v2/events/" + id + "/leaderboard";
+        console.log("GolfChannelCurrent.getEventUrl: " + url);
+        return url;
     };
 
     this.getScheduleUrl = function () {
@@ -96,10 +57,69 @@ var GolfChannelCurrent = function (tour, year, pageCache) {
         // [djb 09/25/2019] Changed for 2020 season... prior URL:
         //                  return "https://www.golfchannel.com/tours/" + tour + "/" + year + "/schedule";
         //
+        // [djb 06/05/2020] Changed in mid 2020 season... prior URL:
+        //                  const url = "https://www.golfchannel.com/api/Tour/GetTourEvents/1?year=" + year;
 
-        const url = "https://www.golfchannel.com/api/Tour/GetTourEvents/1?year=" + year;
-        console.log("TourSchedule.getUrl: " + url);
+        const url = baseUrl + "/api/v2/tours/1/events/" + year;
+        console.log("GolfChannelCurrent.getScheduleUrl: " + url);
         return url;
+    };
+
+    var getEventDetails = function (results, eventid) {
+        if (results == null) {
+            const str = "getSchedule() failed!";
+            console.log(str);
+            return undefined;
+        }
+
+        if (eventid >= results.length) {
+            const str = "error!  invalid event id found!";
+            console.log(str);
+            return undefined;
+        }
+
+        return results[eventid];
+    };
+
+    /**
+     * translate between our event ids and the Golf Channel site
+     * we do this by looking up the tour schedule from the golf channel, finding
+     * the event that matches, then looking up the event via the url that the 
+     * Golf Channel expects
+     * 
+     * @param {string} eventid 
+     * @param {Function} callback 
+     */
+    this.getEventFromWeb = function (eventid) {
+        const self = this;
+
+        return new Promise((resolve, reject) => {
+            this.getSchedule()
+                .then((results) => {
+                    const result = getEventDetails(results, eventid);
+                    if (result == undefined) {
+                        reject("Error retrieving schedule details for event " + eventid);
+                        return;
+                    }
+
+                    console.log("found id " + result.tournament.id + " for event " + eventid);
+
+                    const gcid = result.tournament.id; // golf channel id
+                    const url = self.getEventUrl(gcid);
+
+                    // no cache or archive hit, go to the web
+                    page.getEvent(url)
+                        .then((data) => {
+                            resolve(data);
+                        })
+                        .catch((e) => {
+                            reject(e);
+                        })
+                })
+                .catch((e) => {
+                    reject(e);
+                });
+        });
     };
 
     /**
@@ -110,35 +130,53 @@ var GolfChannelCurrent = function (tour, year, pageCache) {
         return new Promise((resolve, reject) => {
             const self = this;
 
-            // look in the archive first, then go to web if necessary
-            archive.getEvent(eventid, details)
-                .then((result) => {
-                    if (result) {
-                        resolve(result);
-                    } else {
-                        const id = archive.getEventId(eventid);
-                        const eventData = new EventData(details);
+            self.getSchedule()
+                .then((results) => {
+                    const eventDetails = getEventDetails(results, eventid);
+                    if (eventDetails == undefined) {
+                        reject("Error retrieving schedule details for event " + eventid);
+                        return;
+                    }
 
-                        console.log("no archive item found, going to web");
-                        self.getEventFromWeb(eventid)
-                            .then((tournament_data) => {
+                    console.log("found id " + eventDetails.tournament.id + " for event " + eventid);
+
+                    const eventData = new EventData(details);
+
+                    // look in the archive first, then go to web if necessary
+                    archive.getEvent(eventid, details)
+                        .then((tournament_data) => {
+                            if (tournament_data) {
                                 // need to post process golf channel data before
                                 // returning it
-                                const records = eventData.normalize(tournament_data);
+                                const records = eventData.normalize(tournament_data, eventDetails);
 
-                                if (records) {
-                                    // if we parsed the data correctly, 
-                                    // save it in the cache for next time
-                                    pageCache.put(id, tournament_data);
-                                }
                                 resolve(records);
-                            })
-                            .catch((e) => {
-                                reject(e);
-                            });
-                    }
-                })
-                .catch((e) => {
+                            } else {
+                                const id = archive.getEventId(eventid);
+
+                                console.log("no archive item found, going to web");
+                                self.getEventFromWeb(eventid)
+                                    .then((tournament_data) => {
+                                        // need to post process golf channel data before
+                                        // returning it
+                                        const records = eventData.normalize(tournament_data, eventDetails);
+
+                                        if (records) {
+                                            // if we parsed the data correctly, 
+                                            // save it in the cache for next time
+                                            pageCache.put(id, tournament_data);
+                                        }
+                                        resolve(records);
+                                    })
+                                    .catch((e) => {
+                                        reject(e);
+                                    });
+                            }
+                        })
+                        .catch((e) => {
+                            reject(e);
+                        });
+                }).catch((e) => {
                     reject(e);
                 });
         });
@@ -155,9 +193,13 @@ var GolfChannelCurrent = function (tour, year, pageCache) {
 
             // look in the archive first, then go to web if necessary
             archive.getSchedule()
-                .then((result) => {
-                    if (result) {
-                        resolve(result);
+                .then((tournament_data) => {
+                    if (tournament_data) {
+                        // need to post process golf channel data before
+                        // returning it
+                        const records = scheduleData.normalize(tournament_data);
+
+                        resolve(records);
                     } else {
                         console.log("no archive item found, going to web");
 
@@ -212,23 +254,16 @@ var GolfChannelCurrent = function (tour, year, pageCache) {
             // go get content from the web and store result
             this.getEventFromWeb(eventid)
                 .then((tournament_data) => {
-                    if (tournament_data) {
-                        // make sure the tournament_data is valid
-                        const records = eventData.normalize(tournament_data);
-
-                        if (records) {
-                            archive.putEvent(eventid, tournament_data)
-                                .then((result) => {
-                                    resolve(result);
-                                })
-                                .catch((e) => {
-                                    reject(e);
-                                })
-                        } else {
-                            reject("archiveEvent failed: invalid tournament_data found");
-                        }
+                    if (eventData.isValid(tournament_data)) {
+                        archive.putEvent(eventid, tournament_data)
+                            .then((result) => {
+                                resolve(result);
+                            })
+                            .catch((e) => {
+                                reject(e);
+                            })
                     } else {
-                        reject("Invalid tournament data");
+                        reject("archiveEvent failed: invalid tournament_data found");
                     }
                 })
                 .catch((e) => {
@@ -254,12 +289,12 @@ var GolfChannelCurrent = function (tour, year, pageCache) {
 
                         if (records) {
                             archive.putSchedule(tournament_data)
-                            .then((result) => {
-                                resolve(result);
-                            })
-                            .catch((e) => {
-                                reject(e);
-                            })
+                                .then((result) => {
+                                    resolve(result);
+                                })
+                                .catch((e) => {
+                                    reject(e);
+                                })
                         } else {
                             reject("archiveSchedule failed! Invalid schedule data!");
                         }

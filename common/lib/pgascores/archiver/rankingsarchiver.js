@@ -1,5 +1,5 @@
 /**
- * ttempt to archive the given year's world rankings
+ * attempt to archive the given year's world rankings
  */
 
 var PGAWorldRankingsArchive = require('../worldrankingsarchive.js');

@@ -81,7 +81,7 @@ var archiveSeason = function (golfChannel, results) {
         for (var eventid = 0; eventid < results.length; eventid++) {
             const result = results[eventid];
 
-            // if the tournament is complete, see if we have it in archive
+            // if the tournament is complete, see if we have it in the archive
             if (isTournamentComplete(result)) {
                 promises.push(archiveEventIfNecessary(golfChannel, eventid));
             } else {
@@ -121,36 +121,30 @@ var SeasonArchiver = function (tour) {
         const now = new Date();
         console.log("Beginning season archive at " + now.toString());
 
-        golfChannel.isScheduleArchived()
-            .then((result) => {
-                if (result) {
-                    console.log("Found entry for year " + year + "!");
+        // now attempt to archive any events that are in the past
+        golfChannel.getSchedule()
+            .then((records) => {
+                // we update the schedule in the archive each time we
+                // run the season archiver.
+                // this will capture any unforeseen schedule changes
+                // mid season. this was particularly 
+                // relevant during the first COVID year where the season
+                // changed due to cancellations and reschedules
+                golfChannel.archiveSchedule()
+                    .then((result) => {
+                        console.log("updated schedule archive for " + year);
+                    });
 
-                    golfChannel.getSchedule()
-                        .then((records) => {
-                            if (records) {
-                                // now parse through the rest of the schedule
-                                archiveSeason(golfChannel, records);
-                            }
-                        })
-                } else {
-                    console.log("No archive for year " + year);
-
-                    // didn't find it in the archive, archive it
-                    golfChannel.archiveSchedule()
-                        .then((records) => {
-                            // now parse through the rest of the schedule
-                            archiveSeason(golfChannel, records);
-                        })
-                        .catch((e) => {
-                            console.error("Couldn't archive schedule for year " + year);
-                            console.error(e);
-                        })
+                if (records) {
+                    // now parse through the rest of the schedule
+                    archiveSeason(golfChannel, records);
                 }
             })
             .catch((e) => {
-                reject(e);
-            });
+                console.error("Couldn't archive schedule for year " + year);
+                console.error(e);
+            })
+
     }
 };
 

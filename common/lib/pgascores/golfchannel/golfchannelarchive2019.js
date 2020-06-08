@@ -1,5 +1,5 @@
 var ScheduleData = require('./scheduledata.js');
-var EventData = require('./eventdata.js');
+var EventData = require('./eventdata2019.js');
 var Cache = require('../utils/cache.js');
 var Storage = require('../utils/storage.js');
 var Config = require('../utils/config.js');
@@ -8,13 +8,21 @@ var config = new Config();
 var archive = new Storage(config.archive.getGolfChannelBucket());
 
 /**
- * get prior years Golf Channel data from the archive
+ * handle 2019 golf channel requests.  the format of the Golf Channel
+ * site changed (yet again) in 2020, so this serves as the way to get
+ * past results from the object storage archive.
+ * 
+ * encapsulate the basic golf channel tour data (schedule and events)
+ * in an object. Implements an in-memory cache which will 
+ * be checked first.  If no cache hit, then we will look
+ * to see if we've archived it.
  * 
  * @param {String} tour pro tour, PGA is only valid one at this point
  * @param {Number} year year to get schedule and event info
  * @param {Object} pageCache (optional) cache object for pages
  */
-var GolfChannelArchive = function (tour, year, pageCache) {
+var GolfChannel2019 = function (tour, year, pageCache) {
+
     if (!pageCache) {
         const defaultCacheMs = 10000;
         console.log("No cache provided, defaulting to " + defaultCacheMs / 1000 + "s.");
@@ -38,10 +46,7 @@ var GolfChannelArchive = function (tour, year, pageCache) {
 
     /**
      * go get the tournament data
-     * check cache, then archive
-     * 
-     * [djb 06/08/2020] stop post processing the archive data
-     *                  return the raw info
+     * check cache, archive, and finally the URL
      */
     this.getEvent = function (eventid, details) {
         return new Promise((resolve, reject) => {
@@ -51,7 +56,10 @@ var GolfChannelArchive = function (tour, year, pageCache) {
             // check cache first, return that if we have it already
             const tournament_data = pageCache.get(id);
             if (tournament_data) {
-                resolve(tournament_data);
+                // need to post process golf channel data before
+                // returning it
+                const records = eventData.normalize(tournament_data);
+                resolve(records);
                 return;
             }
 
@@ -68,7 +76,10 @@ var GolfChannelArchive = function (tour, year, pageCache) {
                                     pageCache.put(id, tournament_data);
                                 }
 
-                                resolve(tournament_data);
+                                // need to post process golf channel data before
+                                // returning it
+                                const records = eventData.normalize(tournament_data);
+                                resolve(records);
                             })
                             .catch((e) => {
                                 reject(e);
@@ -87,7 +98,7 @@ var GolfChannelArchive = function (tour, year, pageCache) {
     };
 
     /**
-     * check cache, then archive
+     * check cache, archive, and finally the URL
      */
     this.getSchedule = function () {
         return new Promise((resolve, reject) => {
@@ -97,7 +108,10 @@ var GolfChannelArchive = function (tour, year, pageCache) {
             // check cache first, return that if we have it already
             const tournament_data = pageCache.get(id);
             if (tournament_data) {
-                resolve(tournament_data);
+                // need to post process golf channel data before
+                // returning it
+                const records = scheduleData.normalize(tournament_data);
+                resolve(records);
                 return;
             }
 
@@ -114,7 +128,10 @@ var GolfChannelArchive = function (tour, year, pageCache) {
                                     pageCache.put(id, tournament_data);
                                 }
 
-                                resolve(tournament_data);
+                                // need to post process golf channel data before
+                                // returning it
+                                const records = scheduleData.normalize(tournament_data);
+                                resolve(records);
                             })
                             .catch((e) => {
                                 reject(e);
@@ -133,104 +150,21 @@ var GolfChannelArchive = function (tour, year, pageCache) {
     };
 
     /**
-     * store the event info in the archive
-     */
-    this.putEvent = function (eventid, tournament_data) {
-        return new Promise((resolve, reject) => {
-            const id = this.getEventId(eventid);
-            const eventData = new EventData(true);
-
-            console.log("Archiving event " + id);
-
-            // go get content from the web and store result
-            archive.put(id, tournament_data)
-                .then((result) => {
-                    console.log("archived event " + id);
-
-                    // need to post process golf channel data before
-                    // returning it
-                    resolve(eventData.isValid(tournament_data));
-                })
-                .catch((e) => {
-                    const str = "archiveEvent: Error! " + JSON.stringify(e);
-                    console.log(str);
-                    reject(str);
-                });
-        });
-    };
-
-    /**
-     * store the schedule info in the archive
-     */
-    this.putSchedule = function (tournament_data) {
-        return new Promise((resolve, reject) => {
-            const id = this.getScheduleId();
-            const scheduleData = new ScheduleData(tour, year);
-
-            // store result
-            archive.put(id, tournament_data)
-                .then((result) => {
-                    console.log("stored key " + id);
-
-                    // need to post process golf channel data before
-                    // returning it
-                    var records = scheduleData.normalize(tournament_data);
-                    resolve(records);
-                })
-                .catch((e) => {
-                    const str = "archiveEvent: Error! " + JSON.stringify(e);
-                    console.error(str);
-                    reject(str);
-                });
-        });
-
-    };
-
-    /**
      * check if we've archived the event previously
-     * resolves to true if it exists, false otherwise
+     * Promise resolves if true, rejects otherwise
      */
     this.isEventArchived = function (eventid) {
-        return new Promise((resolve, reject) => {
-            const id = this.getEventId(eventid);
-
-            // go to the archives next
-            archive.exists(id)
-                .then((result) => {
-                    if (result) {
-                        resolve(true);
-                    } else {
-                        resolve(false);
-                    }
-                }).catch((e) => {
-                    reject(e);
-                });
-        });
+        return archive.isEventArchived(eventid);
     };
 
     /**
      * check if we've archived this season already
-     * resolves to true if it exists, false otherwise
+     * Promise resolves if true, rejects otherwise
      */
     this.isScheduleArchived = function () {
-        return new Promise((resolve, reject) => {
-            const id = this.getScheduleId();
-
-            // go to the archives next
-            archive.exists(id)
-                .then((result) => {
-                    if (result) {
-                        resolve(true);
-                    } else {
-                        resolve(false);
-                    }
-                })
-                .catch((e) => {
-                    reject(e);
-                });
-        });
-
+        return archive.isScheduleArchived();
     };
+
 }
 
-module.exports = GolfChannelArchive;
+module.exports = GolfChannel2019;

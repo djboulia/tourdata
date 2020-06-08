@@ -46,33 +46,46 @@ var EventData = function (includeDetails) {
         dumpData(tournament_data.event.golfClubs[0].courses[0]);
     }
 
-    /**
-     * check to make sure the data structure is what we're expecting
-     */
-    this.isValid = function(tournament_data) {
-        if (!tournament_data || !tournament_data.result) {
-            // console.log("EventData.normalize: invalid tournament_data: " + JSON.stringify(tournament_data));
-            console.log("EventData.isValid: invalid tournament_data: " + JSON.stringify(tournament_data));
-            return false;
+    var getEventDetails = function (event) {
+
+        var courses = [];
+
+        if (event.golfClubs) {
+            for (var i = 0; i < event.golfClubs.length; i++) {
+                var club = event.golfClubs[i];
+
+                for (var j = 0; j < club.courses.length; j++) {
+                    var course = club.courses[j];
+                    var record = {
+                        name: course.name,
+                        par: course.totalPar,
+                        yardage: course.totalYardage
+                    }
+
+                    courses.push(record);
+                }
+            }
         }
 
-        return true;
+        return {
+            name: event.name,
+            start: event.startDate,
+            end: event.endDate,
+            purse: event.purse,
+            course: courses[0]
+        };
     };
 
     /**
      * Main entry point for the module.  Returns tournament data in a common format
      * 
-     * [djb 06/05/2020]
-     * Format of the object changed in mid 2020.  we handle that in here
-     * 
      * @param {*} tournament_data 
      */
-    this.normalize = function (tournament_data, eventDetails) {
-
-        // new format 
-        if (this.isValid(tournament_data)) {
-            tournament_data = tournament_data.result;
-        } else {
+    this.normalize = function (tournament_data) {
+        if (!tournament_data || !tournament_data.event ||
+            !tournament_data.event.name) {
+            // console.log("EventData.normalize: invalid tournament_data: " + JSON.stringify(tournament_data));
+            console.log("EventData.normalize: invalid tournament_data: no event or event name");
             return null;
         }
 
@@ -80,14 +93,14 @@ var EventData = function (includeDetails) {
 
         // we should have an object with a valid leaderboard and golfer array
         // check that first before we load up the players
-        if (!tournament_data.golfers) {
+        if (!tournament_data.leaderboard || !tournament_data.leaderboard.golfers) {
             console.log("Couldn't find golfer data!!");
             // console.log(JSON.stringify(tournament_data.leaderboard));
             return null;
         }
 
         var records = [];
-        var golfers = tournament_data.golfers;
+        var golfers = tournament_data.leaderboard.golfers;
 
         // console.log(JSON.stringify(golfers));
 
@@ -97,7 +110,7 @@ var EventData = function (includeDetails) {
             var record = player.normalize();
 
             if (includeDetails) {
-                record = player.addRoundDetails(record, tournament_data.scorecards);
+                record = player.addRoundDetails(record, tournament_data.leaderboard.scorecards);
             }
 
             // console.log(JSON.stringify(record));
@@ -105,11 +118,14 @@ var EventData = function (includeDetails) {
             records.push(record);
         }
 
+        var eventInfo = getEventDetails(tournament_data.event);
+        console.log("Found event " + JSON.stringify(eventInfo));
+
         var eventData = {
-            "name": eventDetails.tournament.name,
-            "start": eventDetails.startDate,
-            "end": eventDetails.endDate,
-            "course": eventDetails.courseDetails,
+            "name": eventInfo.name,
+            "start": eventInfo.start,
+            "end": eventInfo.end,
+            "course": eventInfo.course,
             "scores": records,
             "created_at": new Date()
         };

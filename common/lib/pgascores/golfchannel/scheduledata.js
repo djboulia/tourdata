@@ -86,6 +86,37 @@ var ScheduleData = function (tour, year) {
         return courses;
     };
 
+    var getCourseDetails = function (event) {
+
+        var courses = [];
+
+        if (event.golfClubs) {
+            for (var i = 0; i < event.golfClubs.length; i++) {
+                var club = event.golfClubs[i];
+
+                for (var j = 0; j < club.courses.length; j++) {
+                    var course = club.courses[j];
+                    var record = {
+                        name: course.name,
+                        par: course.totalPar,
+                        yardage: course.totalYardage
+                    }
+
+                    courses.push(record);
+                }
+            }
+        }
+
+        return {
+            name: event.name,
+            start: event.startDate,
+            end: event.endDate,
+            purse: event.purse,
+            course: courses[0]
+        };
+    };
+
+
     /**
      * chop up the web elements to gather details about the tournament
      * 
@@ -100,9 +131,7 @@ var ScheduleData = function (tour, year) {
         details.url = "/tournament/" + leaderboard.eventKey;
 
         details.courses = getCourses(event.golfClubs);
-
-        // get tour and tournament name identifiers from the url
-        var parts = details.url.split('/');
+        details.courseDetails = getCourseDetails(event);
 
         details.tour = tour;
         details.year = year;
@@ -116,6 +145,10 @@ var ScheduleData = function (tour, year) {
     /**
      * main entry point for this module.  takes the raw golf channel
      * data and munges it into a common format
+     * 
+     * [djb 06/05/2020]
+     * the format changed slightly in mid 2020.  we check for that 
+     * and react accordingly.
      */
     this.normalize = function (tournament_data) {
         // the tournament_data object holds a bunch of information, but
@@ -153,10 +186,17 @@ var ScheduleData = function (tour, year) {
 
         // dumpData(tournament_data);
 
-        var tourEvents = tournament_data.tourEvents;
-        if (!tourEvents) {
-            // console.log("No tourEvents data found... tournament_data: " + JSON.stringify(tournament_data));
-            return null;
+        // newer format is just an array, old format was an
+        // object called tourEvents
+        let tourEvents = tournament_data;
+
+        if (!Array.isArray(tourEvents)) {
+            // look for old format
+            tourEvents = tournament_data.tourEvents;
+
+            if (!tourEvents) {
+                return null;
+            }
         }
 
         var records = [];
