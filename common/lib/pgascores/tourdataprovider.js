@@ -1,6 +1,5 @@
 var Cache = require('./utils/cache.js');
 var GolfChannelTourData = require('./golfchannel/golfchannelcurrent.js');
-var GolfChannel2019 = require('./golfchannel/golfchannelarchive2019.js');
 var PGATourData = require('./pgatourarchive.js');
 var EventUtils = require('./utils/eventutils.js');
 
@@ -110,19 +109,22 @@ var TourDataProvider = function (tour, year) {
     const tourName = normalizeTourName(tour);
 
     const pgaTourData = new PGATourData(tourName, year, pgaArchiveCache);
-    const golfChannel2019 = new GolfChannel2019(tourName, year, golfChannelCache);
     const golfChannelTourData = new GolfChannelTourData(tourName, year, golfChannelCache);
 
     var isGolfChannel = function () {
-        return year >= 2020;
+        return year >= 2013;
     };
 
-    var isGolfChannel2019 = function () {
-        return year === 2019;
-    };
-
+    /**
+     * [djb 06/08/2020] switched over to the golf channel data for all
+     *                  prior years. Originally the GC site only had the
+     *                  last two years of data.  But it has since added
+     *                  prior years, so we just use that for all years.
+     *                  I'm leaving this code in here in case I have to revert
+     *                  to other data providers in the future.
+     */
     var isPGATour = function () {
-        return year >= 2013 && year < 2019;
+        return false;   // see comment above
     };
 
     var promiseError = function (str) {
@@ -143,8 +145,6 @@ var TourDataProvider = function (tour, year) {
     var getScheduleFromProvider = function () {
         if (isGolfChannel()) {
             return golfChannelTourData.getSchedule();
-        } else if (isGolfChannel2019()) {
-            return golfChannel2019.getSchedule();
         } else if (isPGATour()) {
             return pgaTourData.getSchedule();
         } else {
@@ -163,8 +163,6 @@ var TourDataProvider = function (tour, year) {
     var getEventFromProvider = function (eventid, details, cb) {
         if (isGolfChannel()) {
             return golfChannelTourData.getEvent(eventid, details);
-        } else if (isGolfChannel2019()) {
-            return golfChannel2019.getEvent(eventid, details);
         } else if (isPGATour()) {
             if (details) {
                 // old PGA tour site data didn't provide per hole details
