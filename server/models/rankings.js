@@ -93,7 +93,9 @@ module.exports = function (Rankings) {
             var year = context.args.year;
             var thisYear = new Date().getFullYear();
 
-            if (year < 2003 || year > thisYear) {
+            // [09/16/2020] next year's PGA season now starts in the current
+            //              calendar year so allow next year as a valid date
+            if (year < 2003 || year > thisYear+1) {
                 next(new Error("Invalid year " + year));
                 return;
             }
