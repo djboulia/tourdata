@@ -6,6 +6,7 @@
 
 var request = require('request');
 
+var Header = require('./utils/header.js');
 var NameUtils = require('./utils/nameutils.js');
 var TableScraper = require('./utils/tablescraper.js');
 
@@ -48,13 +49,13 @@ var RankingsScraper = function (html) {
 var PGATourRankingsPage = function (tour, year) {
 
     var getUrl = function () {
-        var url = "http://www.pgatour.com/stats/stat.186";
+        var url = "https://www.pgatour.com/stats/stat.186";
 
         if (year == thisYear()) {
             url = url + ".html";
         } else {
-            // prior years are at a url of the form http://www.pgatour.com/stats/stat.186.YYYY.html
-            url = url + "." + year.toString() + ".html";
+            // prior years are at a url of the form http://www.pgatour.com/stats/stat.186.yYYYY.html
+            url = url + ".y" + year.toString() + ".html";
         }
 
         return url;
@@ -77,18 +78,26 @@ var PGATourRankingsPage = function (tour, year) {
         const url = getUrl();
 
         // go to the web and get it
-        request.get(url, (error, response, body) => {
+        var options = {
+            url: url,
+            method: 'GET',
+            headers: Header.UserAgent.FIREFOX
+          };
+
+          console.log('options: ', options);
+
+          request(options, (error, response, body) => {
 
             if (!error && response.statusCode == 200) {
                 page = body;
 
+                const records = this.parse(page);
+                cb(records);
             } else {
-                console.error("Error retrieving page.  Response code: " + response.statusCode);
+                console.error("Error retrieving page: " + url + "  Response code: " + response.statusCode);
                 console.error("Error message: " + JSON.stringify(error));
+                cb(null);
             }
-
-            const records = this.parse(page);
-            cb(records);
         });
     };
 };
