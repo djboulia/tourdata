@@ -1,8 +1,8 @@
-var Storage = require('./utils/storage.js');
+var Storage = require('./utils/jsonstorages3.js');
 var Config = require('./utils/config.js');
 
 var config = new Config();
-var archive = new Storage(config.archive.getPGATourBucket());
+var archive = new Storage(config.getStorageConfig(), config.archive.getPGATourBucket());
 
 /**
  * get archived pga tour data

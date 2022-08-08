@@ -12,6 +12,18 @@ var Config = function () {
         return obj;
     };
 
+    this.getStorageConfig = function () {
+        var storageConfig = this.get('storageConfig');
+    
+        if (!storageConfig) {
+            console.log("ERROR! no storage configuration found!");
+        } else {
+            console.log("Found storage config: ", storageConfig);
+        }
+    
+        return storageConfig;
+    };
+
     // archive config data here
     this.archive = {
         getWorldRankingsBucket: function () {

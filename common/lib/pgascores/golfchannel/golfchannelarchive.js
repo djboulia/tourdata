@@ -1,11 +1,11 @@
 var ScheduleData = require('./scheduledata.js');
 var EventData = require('./eventdata.js');
 var Cache = require('../utils/cache.js');
-var Storage = require('../utils/storage.js');
+var Storage = require('../utils/jsonstorages3.js');
 var Config = require('../utils/config.js');
 
 var config = new Config();
-var archive = new Storage(config.archive.getGolfChannelBucket());
+var archive = new Storage(config.getStorageConfig(), config.archive.getGolfChannelBucket());
 
 /**
  * get prior years Golf Channel data from the archive
