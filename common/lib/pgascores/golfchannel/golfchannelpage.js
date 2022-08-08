@@ -287,7 +287,7 @@ var GolfChannelPage = function () {
      * go get the specified URL, parse the content into a
      * schedule object
      */
-    this.getSchedule = function (url, cb) {
+    this.getSchedule = function (url) {
         return new Promise((resolve, reject) => {
 
             request.get(url, (error, response, body) => {

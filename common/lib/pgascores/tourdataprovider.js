@@ -1,5 +1,6 @@
 var Cache = require('./utils/cache.js');
 var GolfChannelTourData = require('./golfchannel/golfchannelcurrent.js');
+var ScheduleData = require('./golfchannel/scheduledata.js');
 var PGATourData = require('./pgatourarchive.js');
 var EventUtils = require('./utils/eventutils.js');
 
@@ -67,10 +68,15 @@ var formatScheduleResults = function (tour, year, results) {
         record.endDate = new Date(result.endDate);
 
         record.tournament = result.tournament.name;
+
+        const scheduleData = new ScheduleData(tour, year);
+        const eventid = scheduleData.getEventId(results, i);
+
         record.link = {
             rel: "self",
-            href: createEventUrl(tour, year, i)
-        };
+            href: createEventUrl(tour, year, eventid)
+        };    
+
         record.courses = result.tournament.courses;
         record.format = eventUtils.getFormat();
         record.major = eventUtils.isMajor();

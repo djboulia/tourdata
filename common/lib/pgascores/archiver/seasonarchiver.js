@@ -4,6 +4,7 @@
  */
 
 var GolfChannel = require('../golfchannel/golfchannelcurrent.js');
+var ScheduleData = require('../golfchannel/scheduledata.js');
 
 /**
  * compare just the year/month/day and return true if the date
@@ -73,13 +74,16 @@ var archiveEventIfNecessary = function (golfChannel, eventid) {
     });
 };
 
-var archiveSeason = function (golfChannel, results) {
+var archiveSeason = function (tour, year, golfChannel, results) {
     return new Promise((resolve, reject) => {
         const promises = [];
 
+        const scheduleData = new ScheduleData(tour, year);
+
         // use schedule to start rolling through the season
-        for (var eventid = 0; eventid < results.length; eventid++) {
-            const result = results[eventid];
+        for (var i = 0; i < results.length; i++) {
+            const result = results[i];
+            const eventid = scheduleData.getEventId(results, i);
 
             // if the tournament is complete, see if we have it in the archive
             if (isTournamentComplete(result)) {
@@ -137,7 +141,7 @@ var SeasonArchiver = function (tour) {
 
                 if (records) {
                     // now parse through the rest of the schedule
-                    archiveSeason(golfChannel, records);
+                    archiveSeason(tour, year, golfChannel, records);
                 }
             })
             .catch((e) => {

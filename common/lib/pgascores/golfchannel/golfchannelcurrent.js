@@ -72,13 +72,10 @@ var GolfChannelCurrent = function (tour, year, pageCache) {
             return undefined;
         }
 
-        if (eventid >= results.length) {
-            const str = "error!  invalid event id found! eventid: " + eventid + ", results.length: " + results.length;
-            console.log(str);
-            return undefined;
-        }
+        const scheduleData = new ScheduleData(tour, year);
+        const record = scheduleData.findEvent(results, eventid);
 
-        return results[eventid];
+        return record;
     };
 
     /**
@@ -235,12 +232,12 @@ var GolfChannelCurrent = function (tour, year, pageCache) {
                         console.log("no archive item found, going to web");
 
                         self.getScheduleFromWeb()
-                        .then( (records) =>{
-                            resolve(records);
-                        })                        
-                        .catch((e) => {
-                            reject(e);
-                        });
+                            .then((records) => {
+                                resolve(records);
+                            })
+                            .catch((e) => {
+                                reject(e);
+                            });
 
                     }
                 })

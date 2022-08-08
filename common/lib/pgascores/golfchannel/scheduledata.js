@@ -212,6 +212,7 @@ var ScheduleData = function (tour, year) {
             record.tournament = getTournamentDetails(event);
             record.purse = event.purse;
             record.winner = event.winnerName;
+            record.key = event.key;
 
             // console.log(JSON.stringify(record));
 
@@ -233,6 +234,82 @@ var ScheduleData = function (tour, year) {
 
         return records;
     };
+
+    /**
+     * return the event record corresponding to eventid in the schedule
+     * 
+     * @param {*} schedule 
+     * @param {*} eventid 
+     */
+    this.findEvent = function (schedule, eventid) {
+        // [djb 08/08/2022] changed the way we construct the eventid.  it used to be 
+        //                  just the index of the tournament in the schedule, but 
+        //                  this caused problems when the schedule changed in mid season.  
+        //                  COVID was one example, but other scenarios made that
+        //                  indexing scheme problematic.  
+        //
+        //                  starting in 2022, we use "key" parameter from the results as 
+        //                  the eventid.  Now we look through the schedule and try to find 
+        //                  the matching key
+        //
+
+        if (year < 2022) {
+            if (eventid >= schedule.length) {
+                const str = "error!  invalid event id found! eventid: " + eventid + ", schedule.length: " + schedule.length;
+                console.log(str);
+                return undefined;
+            }
+
+            // eventid is just the index into the array - return the record at this index
+            return schedule[eventid];
+        } else {
+
+            for (let i = 0; i < schedule.length; i++) {
+                const record = schedule[i];
+
+                if (!record.key) {
+                    console.log(`error - key parameter is invalid!`);
+                    return undefined;
+                }
+
+                if (eventid.toString() === record.key.toString()) {
+                    console.log(`found matching event ${eventid}`);
+                    return record;
+                } else {
+                    console.log(`no match for key ${record.key}`);
+                }
+            }
+        }
+
+        const str = `error!  invalid event id found! eventid: ${eventid} schedule.length: ${schedule.length}`;
+        console.log(str);
+        return undefined;
+    }
+
+    /**
+     * return the event id for this item in the schedule
+     */
+    this.getEventId = function(schedule, index) {
+        if (index >= schedule.length) {
+            const str = "error!  invalid index: " + index + ", schedule.length: " + schedule.length;
+            console.log(str);
+            return undefined;
+        }
+
+        if (year < 2022) {
+            // pre 2022, the event id was just the index of this event in the schedule
+            return index;
+        } else {
+            const event = schedule[index];
+
+            // use the event key stored as part of each tournament to
+            // uniquely identify the event
+
+            // console.log('formatScheduleResults event: ' , event);
+            const key = event.key;
+            return key;
+        }
+    }
 
 };
 
