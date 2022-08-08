@@ -21,7 +21,7 @@
          return new Promise((resolve, reject) => {
              console.log(`listing keys in bucket ${bucket}`);
  
-             // Setting up S3 upload parameters
+             // Set up S3 parameters
              const params = {
                  Bucket: bucket,
              };
@@ -65,13 +65,13 @@
  
          return new Promise((resolve, reject) => {
  
-             // Setting up S3 upload parameters
+             // Set up S3 parameters
              const params = {
                  Bucket: bucket,
                  Key: key
              };
  
-             // get all object names in the bucket
+             // see if the object exists
              s3.headObject(params, function (err, data) {
                  if (err) {
                      // we eat any errors and assume the key doesn't exist
@@ -99,13 +99,12 @@
          return new Promise((resolve, reject) => {
              console.log(`Retrieving item from bucket: ${bucket}, key: ${key}`);
  
-             // Setting up S3 upload parameters
+             // Set up S3 parameters
              const params = {
                  Bucket: bucket,
                  Key: key,
              };
  
-             // Uploading files to the bucket
              s3.getObject(params, function (err, data) {
                  if (err) {
                      console.log('Storage.put: ERROR! ', e);
@@ -141,7 +140,7 @@
  
              console.log(`Storing item from bucket: ${bucket}, key: ${key}, ${str.length} bytes`);
  
-             // Setting up S3 upload parameters
+             // Set up S3 parameters
              const params = {
                  Bucket: bucket,
                  Key: key,
@@ -149,7 +148,7 @@
                  ContentType: 'application/json'
              };
  
-             // Uploading files to the bucket
+             // Uploading to the bucket
              s3.upload(params, function (err, data) {
                  if (err) {
                      console.log('Storage.put: ERROR! ', e);
