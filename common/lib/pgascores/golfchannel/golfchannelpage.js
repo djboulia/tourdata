@@ -185,6 +185,8 @@ var getTournamentData = function ($) {
  * In mid 2020, the golf channel went to a much easier JSON based approach
  * So we don't need to do any funky parsing of the SCRIPT tag in a page.
  * 
+ * I left the old methods in here in case anything reverts back in the future.
+ * 
  * @param {String} page content of the page
  */
 var parseEvent = function (page) {

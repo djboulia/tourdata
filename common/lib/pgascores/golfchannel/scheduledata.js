@@ -1,4 +1,6 @@
 /**
+ * Methods to manipulate PGA tour schedule data
+ * 
  * Format details of the schedule coming from golf channel into 
  * our standard representation
  */
@@ -143,8 +145,10 @@ var ScheduleData = function (tour, year) {
     };
 
     /**
-     * main entry point for this module.  takes the raw golf channel
-     * data and munges it into a common format
+     * takes the raw golf channel data and munges it into a common format
+     * in the past there have been multiple sources of tour data that have
+     * been used.  now we just use the golf channel data, but we still map
+     * it to the common format established for the earlier data sources.
      * 
      * [djb 06/05/2020]
      * the format changed slightly in mid 2020.  we check for that 
@@ -155,13 +159,13 @@ var ScheduleData = function (tour, year) {
         // for scheduling purposes, we care about this:
         //
         // tournament_data {
-        //   tourEvents : [
-        //     {
+        //   tourEvents : [{
         //       startDate: "",
         //       endDate: "",
         //       purse: "",
         //       winner: "",
         //       name: "",
+        //       key: "",
         //       leaderboard: {
         //         eventKey: "",
         //         golfClubs: [
@@ -173,11 +177,8 @@ var ScheduleData = function (tour, year) {
         //             }
         //             ]
         //           }
-        //
-        //         ]
-        //       }
-        //     }
-        //   ]
+        //         ]}
+        //     }]
         // }
 
         if (!tournament_data) {
@@ -186,7 +187,7 @@ var ScheduleData = function (tour, year) {
 
         // dumpData(tournament_data);
 
-        // newer format is just an array, old format was an
+        // [djb 06/05/2020] newer format is just an array, old format was an
         // object called tourEvents
         let tourEvents = tournament_data;
 
@@ -238,20 +239,24 @@ var ScheduleData = function (tour, year) {
     /**
      * return the event record corresponding to eventid in the schedule
      * 
-     * @param {*} schedule 
-     * @param {*} eventid 
+     * [djb 08/08/2022] 
+     * changed the way we construct the eventid.  it used to be
+     * just the index of the tournament in the schedule (e.g.
+     * first tournament of the season = 0, second =1, etc.), but 
+     * this caused problems when the schedule changed in mid season.  
+     * Why would the schedule change? COVID was one example, but other 
+     * scenarios made an index based id scheme problematic.  
+     *   
+     * starting in 2022, we use "key" parameter from the GChannel results as 
+     * the eventid.  These two functions encapsulate looking for an event and
+     * an eventid in the schedule pre or post 2022.
+     * 
+     * @param {Array} schedule an array of records representing the season schedule
+     * @param {String} eventid the eventid for the event to find
+     * @returns an event record, undefined if not found
      */
     this.findEvent = function (schedule, eventid) {
-        // [djb 08/08/2022] changed the way we construct the eventid.  it used to be 
-        //                  just the index of the tournament in the schedule, but 
-        //                  this caused problems when the schedule changed in mid season.  
-        //                  COVID was one example, but other scenarios made that
-        //                  indexing scheme problematic.  
-        //
-        //                  starting in 2022, we use "key" parameter from the results as 
-        //                  the eventid.  Now we look through the schedule and try to find 
-        //                  the matching key
-        //
+
 
         if (year < 2022) {
             if (eventid >= schedule.length) {
@@ -287,9 +292,14 @@ var ScheduleData = function (tour, year) {
     }
 
     /**
-     * return the event id for this item in the schedule
+     * return the eventid for this item in the schedule. see method above for why this is
+     * more complex than it should be.
+     * 
+     * @param {Array} schedule an array of records representing the season schedule
+     * @param {*} index the index of the event in this schedule
+     * @returns the eventid for this event in the schedule, undefined if not found
      */
-    this.getEventId = function(schedule, index) {
+    this.getEventId = function (schedule, index) {
         if (index >= schedule.length) {
             const str = "error!  invalid index: " + index + ", schedule.length: " + schedule.length;
             console.log(str);
