@@ -1,6 +1,6 @@
 /**
  *
- *	Get the world rankings from the PGA tour site.  
+ *	Get the world rankings from the PGA tour site.
  *
  **/
 
@@ -8,7 +8,7 @@ var request = require('request');
 
 var Header = require('./utils/header.js');
 var NameUtils = require('./utils/nameutils.js');
-var TableScraper = require('./utils/tablescraper.js');
+var ScriptScraper = require('./utils/scriptscraper.js');
 
 var thisYear = function () {
     return new Date().getFullYear();
@@ -16,22 +16,28 @@ var thisYear = function () {
 
 var RankingsScraper = function (html) {
 
-    var tableId = 'table#statsTable'; // table we will look for in the html
-    var fieldMap = ["rank", "", "name"]; // columns we care about
-    var tableScraper = new TableScraper(html);
+    var scriptId = 'script#__NEXT_DATA__'; // script we will look for in the html
+    var fieldMap = ["rank", "playerName"];
+    var scriptScraper = new ScriptScraper(html);
 
     this.init = function () {
-        return tableScraper.init(tableId);
+        return scriptScraper.init(scriptId);
     };
 
     this.scrape = function () {
-        var records = tableScraper.scrape(fieldMap, (record) => {
-            // validate the name field and turn it into a unique player_id 
-            if (record.name) {
-                record.player_id = NameUtils.normalize(record.name);
+        var records = scriptScraper.scrape(fieldMap, (record) => {
+            // validate the name field and turn it into a unique player_id
+            if (record.playerName) {
+                record.player_id = NameUtils.normalize(record.playerName);
+                record.name = record.playerName;
+                record.playerName = undefined;
             } else {
                 console.log("found invalid record = " + JSON.stringify(record));
                 return null; // don't include in the result
+            }
+
+            if (record.rank) {
+                record.rank = record.rank.toString();
             }
 
             return record;
@@ -49,11 +55,9 @@ var RankingsScraper = function (html) {
 var PGATourRankingsPage = function (tour, year) {
 
     var getUrl = function () {
-        var url = "https://www.pgatour.com/stats/stat.186";
+        var url = "https://www.pgatour.com/stats/detail/186";
 
-        if (year == thisYear()) {
-            url = url + ".html";
-        } else {
+        if (year !== thisYear()) {
             // prior years are at a url of the form http://www.pgatour.com/stats/stat.186.yYYYY.html
             url = url + ".y" + year.toString() + ".html";
         }
