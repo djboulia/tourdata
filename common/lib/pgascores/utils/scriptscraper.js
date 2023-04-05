@@ -1,8 +1,9 @@
 //
-//  records would now consist of:
+//  Official World Gold Rankings page changed from a simple table to a script based
+//  approach.  We parse the script data to get to the names and rankings
 //
-//  [ { first: 'Don', last: 'Boulia', year: '1970' },
-//    { first: 'Carter', last: 'Boulia', year: '2001' }
+//  [ { playerName: 'Don Boulia', rank: 1 },
+//    { playerName: 'Carter Boulia', rank: 2' }
 //  ]
 
 var cheerio = require('cheerio');
@@ -11,16 +12,13 @@ var ScriptScraper = function (html) {
     var $ = null;
     var script = null;
 
-
     //
     // initialize the scraper, looking for the specified script tag in
     // the source html.
     //
-    // tableTag:    This can be in jQuery format, e.g. if you want
-    //              scrape a table in the html such as <table id="foo">,
-    //              then you can call init with a  parameter of "table#foo"
+    // scriptTag:   This is JSON data which contains the world rankings info
     //
-    // returns true if the table was found, false otherwise
+    // returns true if the script was found, false otherwise
     //
     this.init = function (scriptTag) {
         $ = cheerio.load(html);
@@ -48,7 +46,7 @@ var ScriptScraper = function (html) {
     //
     this.scrape = function (fieldMap, rowFunction) {
 
-        console.log("script: " + script.text());
+        // console.log("script: " + script.text());
         const content = script.text();
         const result = JSON.parse(content);
 
@@ -81,28 +79,6 @@ var ScriptScraper = function (html) {
 
             console.log('record' , record);
         }
-
-        // // process each row in the table
-        // $('tr', tbody).each(function (row, tr) {
-
-        //     var record = {};
-
-        //     var td = $('td', tr);
-        //     if (td.each != undefined) {
-
-        //         td.each(function (i, el) {
-        //             var key = getKey(fieldMap, i);
-
-        //             if (key != "") record[key] = getText($(el));
-        //         });
-
-
-        //         if (record != null) {
-        //             records.push(record);
-        //         }
-        //     }
-
-        // });
 
         return records;
     };
