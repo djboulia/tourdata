@@ -134,25 +134,34 @@ const EventData = function (includeDetails) {
 
     var records = [];
     for (const player of leaderboard.players) {
-      const record = {
-        1: player.rounds[0],
-        2: player.rounds[1],
-        3: player.rounds[2],
-        4: player.rounds[3],
-        name: player.player?.displayName,
-        strokes: player.totalStrokes,
-        pos: player.position,
-        thru: player.thru === "F*" ? 18 : player.thru,
-        today: player.score,
-        total: player.total,
-      };
+      // the player list can actually include non player data
+      // check the type to make sure it's a valid player record
+      if (player["__typename"] === "PlayerRowV2") {
+        const record = {
+          1: player.rounds[0],
+          2: player.rounds[1],
+          3: player.rounds[2],
+          4: player.rounds[3],
+          name: player.player?.displayName,
+          strokes: player.totalStrokes,
+          pos: player.position,
+          thru: player.thru === "F*" ? 18 : player.thru,
+          today: player.score,
+          total: player.total,
+        };
 
-      if (includeDetails) {
-        record.round_details = normalizeDetails(player.details);
+        if (includeDetails) {
+          record.round_details = normalizeDetails(player.details);
+        }
+
+        console.log("player:", record);
+        records.push(record);
+      } else {
+        console.log(
+          "EventData.normalize, skipping player record with invalid typename: ",
+          player
+        );
       }
-
-      console.log("player:", record);
-      records.push(record);
     }
 
     var eventData = {

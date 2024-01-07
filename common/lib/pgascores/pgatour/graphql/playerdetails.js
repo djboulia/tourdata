@@ -12,7 +12,6 @@ const QUERY = gql`
     tournamentName
     id
     currentHole
-    currentRound
     player {
       id
       firstName

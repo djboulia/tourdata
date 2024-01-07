@@ -5,7 +5,7 @@ const EventData = require("../../common/lib/pgascores/pgatour/eventdata");
 const run = async () => {
   const tour = "pga";
   const year = 2023;
-  const eventid = "R2023546";
+  const eventid = "R2023014";
   const main = new PgaTourMain(tour, year);
 
   const schedule = await main.getSchedule().catch((e) => {

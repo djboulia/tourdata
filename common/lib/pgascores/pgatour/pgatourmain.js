@@ -140,8 +140,13 @@ const PgaTourMain = function (tour, year, pageCache) {
     const leaderboard = results.leaderboardV2;
     for (const player of leaderboard.players) {
       const playerId = player.id;
-      const details = await qlGetPlayerDetails(eventid, playerId);
-      player.details = details;
+      // console.log("playerId:", playerId);
+      if (!playerId) {
+        console.log("skipping details for null player id : ", player);
+      } else {
+        const details = await qlGetPlayerDetails(eventid, playerId);
+        player.details = details;
+      }
     }
 
     return results;
@@ -182,10 +187,9 @@ const PgaTourMain = function (tour, year, pageCache) {
    */
   this.getScheduleLive = async function () {
     console.log("going to graph for schedule");
-    const scheduleData = new ScheduleData(tour, year);
 
     const tournament_data = await qlGetSchedule(tour, year);
-    console.log(tournament_data);
+    // console.log(tournament_data);
 
     // returned schedule is broken up into completed vs. upcoming lists
     // grab the course details for each tournament
@@ -210,16 +214,16 @@ const PgaTourMain = function (tour, year, pageCache) {
    * check if we've archived the event previously
    * Promise resolves if true, rejects otherwise
    */
-  this.isEventArchived = function (eventid) {
-    return archive.isEventArchived(eventid);
+  this.isEventArchived = async function (eventid) {
+    return await archive.isEventArchived(eventid);
   };
 
   /**
    * check if we've archived this season already
    * Promise resolves if true, rejects otherwise
    */
-  this.isScheduleArchived = function () {
-    return archive.isScheduleArchived();
+  this.isScheduleArchived = async function () {
+    return await archive.isScheduleArchived();
   };
 
   /**
