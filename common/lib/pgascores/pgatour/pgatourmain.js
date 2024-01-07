@@ -191,13 +191,13 @@ const PgaTourMain = function (tour, year, pageCache) {
     // grab the course details for each tournament
 
     if (tournament_data?.schedule?.completed) {
-      const completed = tournament_data?.schedule?.completed;
+      const completed = tournament_data.schedule.completed;
 
       tournament_data.schedule.completed = await addCourseDetails(completed);
       // console.log("results.completed:", completed);
     }
     if (tournament_data?.schedule?.upcoming) {
-      const upcoming = tournament_data?.schedule?.upcoming;
+      const upcoming = tournament_data.schedule.upcoming;
 
       tournament_data.schedule.upcoming = await addCourseDetails(upcoming);
       // console.log("results.upcoming:", upcoming);
@@ -258,7 +258,7 @@ const PgaTourMain = function (tour, year, pageCache) {
     });
 
     if (tournament_data) {
-      // make sure the schedule is valid
+      // make sure the schedule is valid by parsing it first
       const records = scheduleData.normalize(tournament_data);
 
       if (records) {

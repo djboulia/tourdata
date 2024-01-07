@@ -1,5 +1,5 @@
 const ScheduleData = require("./scheduledata.js");
-// const EventData = require("./eventdata.js");
+const EventData = require("./eventdata.js");
 const Cache = require("../utils/cache.js");
 const Storage = require("../utils/jsonstorages3.js");
 const Config = require("../utils/config.js");
@@ -82,9 +82,7 @@ const PgaTourArchive = function (tour, year, pageCache) {
   };
 
   /**
-   * go get the tournament data
-   * check cache, then archive
-   *
+   * go get the tournament data check cache, then archive
    */
   this.getEvent = async function (eventid, details) {
     const id = this.getEventId(eventid);
@@ -140,8 +138,7 @@ const PgaTourArchive = function (tour, year, pageCache) {
 
     console.log("stored key " + id);
 
-    // need to post process golf channel data before
-    // returning it
+    // need to post process data before returning it
     var records = scheduleData.normalize(tournament_data);
     return records;
   };
@@ -152,11 +149,7 @@ const PgaTourArchive = function (tour, year, pageCache) {
       throw e;
     });
 
-    if (result) {
-      return true;
-    } else {
-      return false;
-    }
+    return result ? true : false;
   };
 
   /**
