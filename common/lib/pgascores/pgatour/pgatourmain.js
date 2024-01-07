@@ -28,7 +28,7 @@ const PgaTourMain = function (tour, year, pageCache) {
   const archive = new PgaTourArchive(tour, year, pageCache);
 
   /**
-   * check cache, archive, and finally the URL
+   * check cache, archive, and finally the graph for the schedule
    */
   this.getSchedule = async function () {
     const scheduleData = new ScheduleData(tour, year);
@@ -78,6 +78,9 @@ const PgaTourMain = function (tour, year, pageCache) {
     return record;
   };
 
+  /**
+   * check cache, archive, and finally the graph for this event
+   */
   this.getEvent = async function (eventid, includeDetails) {
     const results = await this.getSchedule().catch((e) => {
       return undefined;
@@ -102,8 +105,7 @@ const PgaTourMain = function (tour, year, pageCache) {
       });
 
     if (tournament_data) {
-      // need to post process golf channel data before
-      // returning it
+      // need to post process data before returning it
       const records = eventData.normalize(tournament_data, eventDetails);
 
       return records;
@@ -115,8 +117,7 @@ const PgaTourMain = function (tour, year, pageCache) {
         throw e;
       });
 
-      // need to post process golf channel data before
-      // returning it
+      // need to post process data before returning it
       const records = eventData.normalize(tournament_data, eventDetails);
 
       if (records) {
@@ -203,6 +204,73 @@ const PgaTourMain = function (tour, year, pageCache) {
     }
 
     return tournament_data;
+  };
+
+  /**
+   * check if we've archived the event previously
+   * Promise resolves if true, rejects otherwise
+   */
+  this.isEventArchived = function (eventid) {
+    return archive.isEventArchived(eventid);
+  };
+
+  /**
+   * check if we've archived this season already
+   * Promise resolves if true, rejects otherwise
+   */
+  this.isScheduleArchived = function () {
+    return archive.isScheduleArchived();
+  };
+
+  /**
+   * go get event from the web and put it in the archive
+   */
+  this.archiveEvent = async function (eventid) {
+    const eventData = new EventData(false);
+
+    // go get content from the web and store result
+    const tournament_data = await this.getEventLive(eventid).catch((e) => {
+      throw e;
+    });
+
+    if (eventData.isValid(tournament_data)) {
+      const result = await archive
+        .putEvent(eventid, tournament_data)
+        .catch((e) => {
+          throw e;
+        });
+
+      return result;
+    } else {
+      throw new Error("archiveEvent failed: invalid tournament_data found");
+    }
+  };
+
+  /**
+   * go get schedule from the web and put it in the archive
+   */
+  this.archiveSchedule = async function () {
+    const scheduleData = new ScheduleData(tour, year);
+
+    // go get it from the web and store result
+    const tournament_data = await this.getScheduleLive().catch(() => {
+      return undefined;
+    });
+
+    if (tournament_data) {
+      // make sure the schedule is valid
+      const records = scheduleData.normalize(tournament_data);
+
+      if (records) {
+        const result = await archive.putSchedule(tournament_data).catch((e) => {
+          throw e;
+        });
+
+        return result;
+      } else {
+        throw new Error("archiveSchedule failed! Invalid schedule data!");
+      }
+    }
   };
 };
 
