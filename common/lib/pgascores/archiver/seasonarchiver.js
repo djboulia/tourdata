@@ -57,18 +57,32 @@ const archiveEventIfNecessary = async function (dataProvider, eventid) {
     console.log(`Found entry for event ${eventid}, not archiving!`);
     return false;
   } else {
-    // not in the archive, go store it
-    console.log(`archiving event ${eventid}`);
-    const results = await dataProvider.archiveEvent(eventid).catch((e) => {
-      console.error("Error:" + e);
-      return undefined;
-    });
-
-    return !!results;
+    return await archiveEvent(dataProvider, eventid);
   }
 };
 
-const archiveSeason = async function (tour, year, dataProvider, results) {
+/**
+ * update archive regardless of whether it exists
+ *
+ */
+const archiveEvent = async function (dataProvider, eventid) {
+  // not in the archive, go store it
+  console.log(`archiving event ${eventid}`);
+  const results = await dataProvider.archiveEvent(eventid).catch((e) => {
+    console.error("Error:" + e);
+    return undefined;
+  });
+
+  return !!results;
+};
+
+const archiveSeason = async function (
+  tour,
+  year,
+  dataProvider,
+  results,
+  overwrite = false
+) {
   const scheduleData = new ScheduleData(tour, year);
 
   // use schedule to start rolling through the season
@@ -78,7 +92,12 @@ const archiveSeason = async function (tour, year, dataProvider, results) {
 
     // if the tournament is complete, see if we have it in the archive
     if (isTournamentComplete(result)) {
-      await archiveEventIfNecessary(dataProvider, eventid);
+      // if we're overwriting, then we don't care if it's already in the archive
+      if (overwrite) {
+        await archiveEvent(dataProvider, eventid);
+      } else {
+        await archiveEventIfNecessary(dataProvider, eventid);
+      }
     } else {
       console.log(
         "Tournament " +
@@ -102,8 +121,11 @@ const SeasonArchiver = function (tour) {
    * Will check to see if the season and events are currently archived.
    * If not, will then make sure the event has already completed and is
    * therefore eligible for archiving.
+   *
+   * @param {number} year year of the season to archive
+   * @param {Boolean} overwrite if true, will overwrite existing events in the archive
    */
-  this.archive = async function (year) {
+  this.archive = async function (year, overwrite = false) {
     // attempt to get the schedule from the archive
     const dataProvider = new PgaTourProvider(tour, year);
 
@@ -122,7 +144,7 @@ const SeasonArchiver = function (tour) {
     // if the schedule succeeded, then we can archive the season
     if (records) {
       // now parse through the rest of the schedule
-      await archiveSeason(tour, year, dataProvider, records);
+      await archiveSeason(tour, year, dataProvider, records, overwrite);
     }
   };
 };

@@ -1,4 +1,5 @@
 const { formatNetScore } = require("../../utils/scorecard");
+const PlayerDetails = require("./playerdetails");
 
 /**
  * Format details of a given tournament coming from the pga tour into
@@ -20,60 +21,6 @@ const EventData = function (includeDetails) {
     }
 
     return true;
-  };
-
-  const normalizeDetails = function (details) {
-    const round_details = {};
-
-    if (!details?.scorecardV2?.roundScores) {
-      console.log("no round scores found");
-      return undefined;
-    }
-
-    if (details?.scorecardV2?.roundScores) {
-      for (const round of details?.scorecardV2?.roundScores) {
-        console.log("round:", round);
-
-        // console.log("round.firstNine.holes:", round?.firstNine?.holes);
-        // console.log("round.secondNine.holes:", round?.secondNine?.holes);
-
-        // round_details: {
-        //   "1": {
-        //         "round_values": [...],  // array of string scores for each hole, e.g. { "3", "4", "2", "5"}
-        //         "par_values": [...],    // array of numbers representing par for each hole, e.g. { 3, 4, 2, 5 }
-        //         "net_values": [...]     // array of string net par values for each hole , e.g ("E", "-1", "+1", etc.)
-        //   }
-        //   "2" {...}
-        //   "3" {...}
-        //   "4" {...}
-
-        const details = {
-          round_values: [],
-          par_values: [],
-          net_values: [],
-        };
-
-        for (const hole of round?.firstNine?.holes) {
-          console.log("hole:", hole);
-
-          details.round_values.push(`${hole?.score}`);
-          details.par_values.push(hole?.par);
-          details.net_values.push(formatNetScore(hole?.score - hole?.par));
-        }
-
-        for (const hole of round?.secondNine?.holes) {
-          console.log("hole:", hole);
-
-          details.round_values.push(`${hole?.score}`);
-          details.par_values.push(hole?.par);
-          details.net_values.push(formatNetScore(hole?.score - hole?.par));
-        }
-
-        round_details[`${round.roundNumber}`] = details;
-      }
-    }
-
-    return round_details;
   };
 
   /**
@@ -123,6 +70,8 @@ const EventData = function (includeDetails) {
    * @param {Object} tournament_data
    */
   this.normalize = function (tournament_data, eventDetails) {
+    const playerDetails = new PlayerDetails();
+
     const leaderboard = tournament_data.leaderboardV2;
     // we should have an object with a valid leaderboard and golfer array
     // check that first before we load up the players
@@ -151,10 +100,10 @@ const EventData = function (includeDetails) {
         };
 
         if (includeDetails) {
-          record.round_details = normalizeDetails(player.details);
+          record.round_details = playerDetails.normalize(player.details);
         }
 
-        console.log("player:", record);
+        // console.log("player:", record);
         records.push(record);
       } else {
         console.log(
