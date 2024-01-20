@@ -2,6 +2,9 @@
 // this is useful for discovering all of the pgatour.com graphql endpoints
 // not used in day to day of the app
 //
+// thanks to Charlie Ahmer for this code
+// https://github.com/charlie-ahmer/PGATour-DataCollectionAndDashboard/blob/main/PGA_WebScrape.ipynb
+//
 const { gql } = require("@apollo/client/core");
 const client = require("./graphclient");
 
