@@ -36,10 +36,11 @@ const todayInUTC = function () {
 };
 
 /**
- * check if the tournament is complete
+ * check if the tournament is complete.  We do everything in UTC since
+ * that's how the dates come from the PGA Tour
  *
  * @param {string} dateString UTC date string in YYYY-MM-DDT00:00:00:000Z format
- * @returns
+ * @returns {boolean} true if the tournament is complete
  */
 exports.isTournamentComplete = function (dateString) {
   const endDate = new Date(dateString);
@@ -53,9 +54,9 @@ exports.isTournamentComplete = function (dateString) {
 
   console.log(
     "Tournament end date: " +
-      endDate +
+      endDate.toUTCString() +
       ", today: " +
-      today +
+      today.toUTCString() +
       ", complete=" +
       complete
   );
