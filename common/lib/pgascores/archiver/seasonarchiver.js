@@ -5,47 +5,7 @@
 
 const PgaTourProvider = require("../pgatour/pgatourmain.js");
 const ScheduleData = require("../pgatour/scheduledata.js");
-
-/**
- * compare just the year/month/day and return true if the date
- * is the current date or earlier
- *
- * @param {Date} date javascript date object
- */
-const inThePast = function (date) {
-  const now = new Date();
-
-  if (date.getFullYear() < now.getFullYear()) {
-    return true;
-  } else if (date.getFullYear() > now.getFullYear()) {
-    return false;
-  }
-
-  if (date.getMonth() < now.getMonth()) {
-    return true;
-  } else if (date.getMonth() > now.getMonth()) {
-    return false;
-  }
-
-  if (date.getDate() < now.getDate()) {
-    return true;
-  } else if (date.getDate() > now.getDate()) {
-    return false;
-  }
-
-  // date is today if we get here... we do NOT consider that in the past
-  return false;
-};
-
-const isTournamentComplete = function (tourStop) {
-  const endDate = new Date(tourStop.endDate);
-
-  const complete = inThePast(endDate);
-
-  console.log("Tournament end date: " + endDate + ", complete=" + complete);
-
-  return complete;
-};
+const TournamentDate = require("../utils/tournamentdate.js");
 
 const archiveEventIfNecessary = async function (dataProvider, eventid) {
   const result = await dataProvider.isEventArchived(eventid).catch((e) => {
@@ -91,7 +51,7 @@ const archiveSeason = async function (
     const eventid = scheduleData.getEventId(results, i);
 
     // if the tournament is complete, see if we have it in the archive
-    if (isTournamentComplete(result)) {
+    if (TournamentDate.isTournamentComplete(result.endDate)) {
       // if we're overwriting, then we don't care if it's already in the archive
       if (overwrite) {
         await archiveEvent(dataProvider, eventid);
