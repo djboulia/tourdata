@@ -13,6 +13,10 @@ const QUERY = gql`
     __schema {
       queryType {
         name
+        fields {
+          name
+          description
+        }
       }
       mutationType {
         name
@@ -22,6 +26,11 @@ const QUERY = gql`
       }
       types {
         ...FullType
+      }
+      directives {
+        name
+        description
+        locations
       }
     }
   }
@@ -40,9 +49,6 @@ const QUERY = gql`
         ...TypeRef
       }
     }
-    inputFields {
-      ...InputValue
-    }
     interfaces {
       ...TypeRef
     }
@@ -59,9 +65,6 @@ const QUERY = gql`
   fragment InputValue on __InputValue {
     name
     description
-    type {
-      ...TypeRef
-    }
     defaultValue
   }
 
