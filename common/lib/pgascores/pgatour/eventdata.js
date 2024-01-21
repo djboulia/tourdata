@@ -68,7 +68,7 @@ const EventData = function (includeDetails) {
     const records = [];
 
     for (const player of leaderboard.players) {
-      const record = playerParser.normalize(player);
+      const record = playerParser.normalize(player, leaderboard.rounds);
 
       if (record) {
         // console.log("player:", record);

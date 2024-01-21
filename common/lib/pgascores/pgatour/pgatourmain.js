@@ -5,7 +5,7 @@ const EventData = require("./eventdata.js");
 const qlGetSchedule = require("./graphql/schedule.js");
 const qlGetCourseDetails = require("./graphql/coursedetails.js");
 const glLeaderboard = require("./graphql/leaderboard.js");
-const qlGetPlayerDetails = require("./graphql/playerdetails.js");
+const qlLeaderboardHoleByHole = require("./graphql/leaderboardholebyhole.js");
 
 /**
  * handle current year pga tour requests.  Will check the archive first
@@ -132,22 +132,19 @@ const PgaTourMain = function (tour, year, pageCache) {
   /**
    * go directly to the graph to get the given event
    */
-  this.getEventLive = async function (eventid) {
+  this.getEventLive = async function (tournamentId) {
     // call the graph to get the leaderboard data
-    const results = await glLeaderboard(eventid);
+    const results = await glLeaderboard(tournamentId);
     // console.log(JSON.stringify(results, null, 2));
 
     const leaderboard = results.leaderboardV2;
-    for (const player of leaderboard.players) {
-      const playerId = player.id;
-      // console.log("playerId:", playerId);
-      if (!playerId) {
-        console.log("skipping details for null player id : ", player);
-      } else {
-        const details = await qlGetPlayerDetails(eventid, playerId);
-        player.details = details;
-      }
-    }
+    const rounds = [];
+
+    rounds.push(await qlLeaderboardHoleByHole(tournamentId, 1));
+    rounds.push(await qlLeaderboardHoleByHole(tournamentId, 2));
+    rounds.push(await qlLeaderboardHoleByHole(tournamentId, 3));
+    rounds.push(await qlLeaderboardHoleByHole(tournamentId, 4));
+    leaderboard.rounds = rounds;
 
     return results;
   };

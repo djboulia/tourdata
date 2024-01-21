@@ -103,7 +103,7 @@ const Player = function (includeDetails) {
       if includeDetails is true, each score will also have a round_details{} object
    * @param {Object} tournament_data
    */
-  this.normalize = function (player) {
+  this.normalize = function (player, rounds) {
     const playerDetails = new PlayerDetails();
 
     // the player list can actually include non player data
@@ -128,7 +128,7 @@ const Player = function (includeDetails) {
     fixEmptyRoundScore(player, record);
 
     if (includeDetails) {
-      record.round_details = playerDetails.normalize(player.details);
+      record.round_details = playerDetails.normalize(player.id, rounds);
     }
 
     return record;

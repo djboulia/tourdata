@@ -5,30 +5,33 @@
  */
 const Player = require("../../common/lib/pgascores/pgatour/player");
 const glLeaderboard = require("../../common/lib/pgascores/pgatour/graphql/leaderboard");
-const qlGetPlayerDetails = require("../../common/lib/pgascores/pgatour/graphql/playerdetails");
+const qlLeaderboardHoleByHole = require("../../common/lib/pgascores/pgatour/graphql/leaderboardholebyhole");
 
 const tournamentId = "R2024002"; // 2024 American Express
 // const tournamentId = "R2023014";
 
 const run = async () => {
   const results = await glLeaderboard(tournamentId);
+  const rounds = [];
+
+  rounds.push(await qlLeaderboardHoleByHole(tournamentId, 1));
+  rounds.push(await qlLeaderboardHoleByHole(tournamentId, 2));
+  rounds.push(await qlLeaderboardHoleByHole(tournamentId, 3));
+  rounds.push(await qlLeaderboardHoleByHole(tournamentId, 4));
+
   // console.log(JSON.stringify(results, null, 2));
 
   const playerParser = new Player(true);
 
   const leaderboard = results.leaderboardV2;
+  leaderboard.rounds = rounds;
+
   for (const player of leaderboard.players) {
     console.log("player:", player);
 
     if (player["__typename"] === "PlayerRowV2") {
-      const playerId = player.id;
-      const details = await qlGetPlayerDetails(tournamentId, playerId);
-      console.log("player details: ", details);
-
-      player.details = details;
-
-      const record = playerParser.normalize(player);
-      console.log("player record: ", record);
+      const record = playerParser.normalize(player, leaderboard.rounds);
+      console.log("player record: ", JSON.stringify(record, null, 2));
     }
   }
 };

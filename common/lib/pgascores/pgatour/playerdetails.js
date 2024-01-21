@@ -19,66 +19,66 @@ const PlayerDetails = function () {
     details.net_values.push(netScore);
   };
 
-  this.normalize = function (details) {
+  this.normalize = function (playerId, rounds) {
     const round_details = {};
 
-    if (!details?.scorecardV2?.roundScores) {
-      console.log("no round scores found");
-      return undefined;
-    }
+    let roundNumber = 0;
 
-    if (details?.scorecardV2?.roundScores) {
-      for (const round of details?.scorecardV2?.roundScores) {
-        // console.log("round:", round);
+    for (const round of rounds) {
+      roundNumber++;
 
-        // console.log("round.firstNine.holes:", round?.firstNine?.holes);
-        // console.log("round.secondNine.holes:", round?.secondNine?.holes);
+      if (!round?.leaderboardHoleByHole?.playerData) {
+        console.log("no player data for player:", playerId);
+        continue;
+      }
 
-        // round_details: {
-        //   "1": {
-        //         "round_values": [...],  // array of string scores for each hole, e.g. { "3", "4", "2", "5"}
-        //         "par_values": [...],    // array of numbers representing par for each hole, e.g. { 3, 4, 2, 5 }
-        //         "net_values": [...]     // array of string net par values for each hole , e.g ("E", "-1", "+1", etc.)
-        //   }
-        //   "2" {...}
-        //   "3" {...}
-        //   "4" {...}
+      const playerData = round.leaderboardHoleByHole.playerData;
+      const player = playerData.find((p) => p.playerId === playerId);
 
-        const details = {
-          round_values: [],
-          par_values: [],
-          net_values: [],
-        };
+      if (!player) {
+        console.log("no scoring data found for player:", playerId);
+        continue;
+      }
 
-        let hasOneValidScore = false;
+      // console.log("round:", round);
 
-        for (const hole of round?.firstNine?.holes) {
-          // console.log("hole:", hole);
+      // console.log("round.firstNine.holes:", round?.firstNine?.holes);
+      // console.log("round.secondNine.holes:", round?.secondNine?.holes);
 
-          addHoleScore(details, hole);
+      // round_details: {
+      //   "1": {
+      //         "round_values": [...],  // array of string scores for each hole, e.g. { "3", "4", "2", "5"}
+      //         "par_values": [...],    // array of numbers representing par for each hole, e.g. { 3, 4, 2, 5 }
+      //         "net_values": [...]     // array of string net par values for each hole , e.g ("E", "-1", "+1", etc.)
+      //   }
+      //   "2" {...}
+      //   "3" {...}
+      //   "4" {...}
 
-          if (isValidHoleScore(hole)) {
-            hasOneValidScore = true;
-          }
+      const details = {
+        round_values: [],
+        par_values: [],
+        net_values: [],
+      };
+
+      let hasOneValidScore = false;
+
+      player.scores.sort((a, b) => a.holeNumber - b.holeNumber);
+
+      for (const hole of player.scores) {
+        // console.log("hole:", hole);
+
+        addHoleScore(details, hole);
+
+        if (isValidHoleScore(hole)) {
+          hasOneValidScore = true;
         }
+      }
 
-        for (const hole of round?.secondNine?.holes) {
-          // console.log("hole:", hole);
-
-          addHoleScore(details, hole);
-
-          if (isValidHoleScore(hole)) {
-            hasOneValidScore = true;
-          }
-        }
-
-        if (!hasOneValidScore) {
-          console.log(
-            `no valid scores found for round ${round.roundNumber}, skipping`
-          );
-        } else {
-          round_details[`${round.roundNumber}`] = details;
-        }
+      if (!hasOneValidScore) {
+        console.log(`no valid scores found for round ${roundNumber}, skipping`);
+      } else {
+        round_details[`${roundNumber}`] = details;
       }
     }
 
