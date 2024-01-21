@@ -55,8 +55,6 @@ const EventData = function (includeDetails) {
    * @param {Object} tournament_data
    */
   this.normalize = function (tournament_data, eventDetails) {
-    const playerDetails = new PlayerDetails();
-
     const leaderboard = tournament_data.leaderboardV2;
     // we should have an object with a valid leaderboard and golfer array
     // check that first before we load up the players
@@ -67,8 +65,8 @@ const EventData = function (includeDetails) {
     }
 
     const playerParser = new Player(includeDetails);
+    const records = [];
 
-    var records = [];
     for (const player of leaderboard.players) {
       const record = playerParser.normalize(player);
 
