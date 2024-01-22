@@ -9,80 +9,89 @@
 var cachedItems = 0;
 
 var memStats = function () {
-    var used = process.memoryUsage();
-    var now = new Date();
+  var used = process.memoryUsage();
+  var now = new Date();
 
-    console.log("cached items: " + cachedItems);
-    console.log("mem stats ==> " + now.toLocaleTimeString() + " heapUsed: " + Math.round(used.heapUsed / 1024 / 1024 * 100) / 100 + " MB");
+  console.log("cached items: " + cachedItems);
+  console.log(
+    "mem stats ==> " +
+      now.toLocaleTimeString() +
+      " heapUsed: " +
+      Math.round((used.heapUsed / 1024 / 1024) * 100) / 100 +
+      " MB"
+  );
 };
 
 var Cache = function (ttl) {
-    this.cache = {};
+  this.cache = {};
 
-    var remove = function (cache, key) {
-        cache[key] = undefined;
+  var remove = function (cache, key) {
+    cache[key] = undefined;
 
-        cachedItems = cachedItems - 1;
-    };
+    cachedItems = cachedItems - 1;
+  };
 
-    var flush = function (cache) {
-        // internal function to remove any expired cache entries
-        var now = Date.now();
+  var flush = function (cache) {
+    // internal function to remove any expired cache entries
+    var now = Date.now();
 
-        const keys = Object.keys(cache)
-        for (const key of keys) {
-            var entry = cache[key];
+    const keys = Object.keys(cache);
+    for (const key of keys) {
+      var entry = cache[key];
 
-            if (entry) {
-                if (now - entry.timestamp > ttl * 1000) {
-                    console.log("removing expired entry " + key);
+      if (entry) {
+        if (now - entry.timestamp > ttl * 1000) {
+          console.log("removing expired entry " + key);
 
-                    remove(cache, key);
-                }
-            }
+          remove(cache, key);
         }
-    };
+      }
+    }
+  };
 
-    this.get = function (key) {
+  this.get = function (key) {
+    flush(this.cache);
 
-        flush(this.cache);
+    var entry = this.cache[key];
+    var data = null;
 
-        var entry = this.cache[key];
-        var data = null;
+    if (entry) {
+      var now = Date.now();
+      console.log(
+        `cache hit for ${key}: ${
+          (ttl * 1000 - (now - entry.timestamp)) / 1000
+        }s until cache expires`
+      );
 
-        if (entry) {
-            console.log("cache hit for " + key);
+      data = this.cache[key].data;
+    } else {
+      console.log("no cache entry for " + key);
+    }
 
-            data = this.cache[key].data;
-        } else {
-            console.log("no cache entry for " + key);
-        }
+    memStats();
 
-        memStats();
+    return data;
+  };
 
-        return data;
-    };
+  this.put = function (key, obj) {
+    if (obj) {
+      console.log("setting cache entry for " + key);
 
-    this.put = function (key, obj) {
-        if (obj) {
-            console.log("setting cache entry for " + key);
+      this.cache[key] = {
+        data: obj,
+        timestamp: Date.now(),
+      };
 
-            this.cache[key] = {
-                "data": obj,
-                "timestamp": Date.now()
-            };
+      cachedItems = cachedItems + 1;
+    } else {
+      // putting a null/undefined object deletes this entry from the cache
+      console.log("removing cache entry for " + key);
 
-            cachedItems = cachedItems + 1;
-        } else {
-            // putting a null/undefined object deletes this entry from the cache
-            console.log("removing cache entry for " + key);
+      remove(this.cache, key);
+    }
 
-            remove(this.cache, key);
-        }
-
-        memStats();
-
-    };
+    memStats();
+  };
 };
 
 module.exports = Cache;
