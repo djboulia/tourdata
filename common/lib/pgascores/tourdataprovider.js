@@ -1,13 +1,15 @@
 var Cache = require("./utils/cache.js");
 var GolfChannelTourData = require("./golfchannel/golfchannelcurrent.js");
 var ScheduleData = require("./golfchannel/scheduledata.js");
-const PgaTourData = require("./pgatour/pgatourmain.js");
+const PgaScheduleProvider = require("./pgatour/pgatourschedule.js");
+const PgaEventProvider = require("./pgatour/pgatourevent.js");
 var EventUtils = require("./utils/eventutils.js");
 
 /**
  * Use one cache provider for all instances of PGA archive
  */
-var pgaTourCache = new Cache(60 * 5); // 5 min cache
+var pgaTourScheduleCache = new Cache(60 * 60 * 24); // 1 day cache for schedule
+var pgaTourEventCache = new Cache(60 * 5); // 5 min cache for events
 var golfChannelCache = new Cache(60 * 60 * 24 * 30); // archive data doesn't change; keep for 30 days
 
 /**
@@ -112,7 +114,19 @@ var formatScheduleResults = function (tour, year, results) {
 var TourDataProvider = function (tour, year) {
   const tourName = normalizeTourName(tour);
 
-  const pgaTourData = new PgaTourData(tour, year, pgaTourCache);
+  const pgaTourScheduleProvider = new PgaScheduleProvider(
+    tour,
+    year,
+    pgaTourScheduleCache
+  );
+
+  const pgaTourEventProvider = new PgaEventProvider(
+    tour,
+    year,
+    pgaTourScheduleProvider,
+    pgaTourEventCache
+  );
+
   const golfChannelTourData = new GolfChannelTourData(
     tourName,
     year,
@@ -156,7 +170,7 @@ var TourDataProvider = function (tour, year) {
    */
   var getScheduleFromProvider = function () {
     if (isPGATour()) {
-      return pgaTourData.getSchedule();
+      return pgaTourScheduleProvider.get();
     } else if (isGolfChannel()) {
       return golfChannelTourData.getSchedule();
     } else {
@@ -174,7 +188,7 @@ var TourDataProvider = function (tour, year) {
    */
   var getEventFromProvider = function (eventid, details, cb) {
     if (isPGATour()) {
-      return pgaTourData.getEvent(eventid, details);
+      return pgaTourEventProvider.get(eventid, details);
     } else if (isGolfChannel()) {
       return golfChannelTourData.getEvent(eventid, details);
     } else {

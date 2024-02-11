@@ -1,4 +1,5 @@
-const PgaTourMain = require("../../common/lib/pgascores/pgatour/pgatourmain");
+const PgaTourSchedule = require("../../common/lib/pgascores/pgatour/pgatourschedule");
+const PgaTourEvent = require("../../common/lib/pgascores/pgatour/pgatourevent");
 const ScheduleData = require("../../common/lib/pgascores/pgatour/scheduledata");
 const EventData = require("../../common/lib/pgascores/pgatour/eventdata");
 
@@ -6,9 +7,10 @@ const run = async () => {
   const tour = "pga";
   const year = 2023;
   const eventid = "R2023014";
-  const main = new PgaTourMain(tour, year);
+  const mainSchedule = new PgaTourSchedule(tour, year);
+  const mainEvent = new PgaTourEvent(tour, year, mainSchedule);
 
-  const schedule = await main.getSchedule().catch((e) => {
+  const schedule = await mainSchedule.get().catch((e) => {
     return undefined;
   });
 
@@ -24,7 +26,7 @@ const run = async () => {
 
   const eventData = new EventData(true);
 
-  const eventRaw = await main.getEventLive(eventid);
+  const eventRaw = await mainEvent.getLive(eventid);
   console.log(JSON.stringify(eventRaw, null, 2));
 
   const records = eventData.normalize(eventRaw, eventDetails);

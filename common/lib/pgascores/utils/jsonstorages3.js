@@ -63,7 +63,7 @@ const JsonStorageS3 = function (serviceCredentials, bucket) {
    * @returns true if key exists in bucket, false otherwise
    */
   this.exists = function (key) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       // Set up S3 parameters
       const params = {
         Bucket: bucket,
@@ -71,7 +71,8 @@ const JsonStorageS3 = function (serviceCredentials, bucket) {
       };
 
       // see if the object exists
-      s3.headObject(params, function (err, data) {
+      s3.headObject(params, function (err) {
+        console.log("s3 result ", err);
         if (err) {
           // we eat any errors and assume the key doesn't exist
           console.log(`Could not find object with key ${key}. `, err.code);

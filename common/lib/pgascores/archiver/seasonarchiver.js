@@ -3,12 +3,13 @@
  * for any prior tournaments in the year that have not yet been archived
  */
 
-const PgaTourProvider = require("../pgatour/pgatourmain.js");
+const PgaScheduleProvider = require("../pgatour/pgatourschedule.js");
+const PgaEventProvider = require("../pgatour/pgatourevent.js");
 const ScheduleData = require("../pgatour/scheduledata.js");
 const TournamentDate = require("../utils/tournamentdate.js");
 
-const archiveEventIfNecessary = async function (dataProvider, eventid) {
-  const result = await dataProvider.isEventArchived(eventid).catch((e) => {
+const archiveEventIfNecessary = async function (eventProvider, eventid) {
+  const result = await eventProvider.isArchived(eventid).catch((e) => {
     throw e;
   });
 
@@ -17,7 +18,7 @@ const archiveEventIfNecessary = async function (dataProvider, eventid) {
     console.log(`Found entry for event ${eventid}, not archiving!`);
     return false;
   } else {
-    return await archiveEvent(dataProvider, eventid);
+    return await archiveEvent(eventProvider, eventid);
   }
 };
 
@@ -25,10 +26,10 @@ const archiveEventIfNecessary = async function (dataProvider, eventid) {
  * update archive regardless of whether it exists
  *
  */
-const archiveEvent = async function (dataProvider, eventid) {
+const archiveEvent = async function (eventProvider, eventid) {
   // not in the archive, go store it
   console.log(`archiving event ${eventid}`);
-  const results = await dataProvider.archiveEvent(eventid).catch((e) => {
+  const results = await eventProvider.archive(eventid).catch((e) => {
     console.error("Error:" + e);
     return undefined;
   });
@@ -39,7 +40,7 @@ const archiveEvent = async function (dataProvider, eventid) {
 const archiveSeason = async function (
   tour,
   year,
-  dataProvider,
+  eventProvider,
   results,
   overwrite = false
 ) {
@@ -54,9 +55,9 @@ const archiveSeason = async function (
     if (TournamentDate.isTournamentComplete(result.endDate)) {
       // if we're overwriting, then we don't care if it's already in the archive
       if (overwrite) {
-        await archiveEvent(dataProvider, eventid);
+        await archiveEvent(eventProvider, eventid);
       } else {
-        await archiveEventIfNecessary(dataProvider, eventid);
+        await archiveEventIfNecessary(eventProvider, eventid);
       }
     } else {
       console.log(
@@ -87,7 +88,8 @@ const SeasonArchiver = function (tour) {
    */
   this.archive = async function (year, overwrite = false) {
     // attempt to get the schedule from the archive
-    const dataProvider = new PgaTourProvider(tour, year);
+    const scheduleProvider = new PgaScheduleProvider(tour, year);
+    const eventProvider = new PgaEventProvider(tour, year, scheduleProvider);
 
     const now = new Date();
     console.log("Beginning season archive at " + now.toString());
@@ -98,13 +100,13 @@ const SeasonArchiver = function (tour) {
     // mid season. this was particularly
     // relevant during the first COVID year where the season
     // changed due to cancellations and reschedules
-    const records = await dataProvider.archiveSchedule();
+    const records = await scheduleProvider.archive();
     console.log("updated schedule archive for " + year);
 
     // if the schedule succeeded, then we can archive the season
     if (records) {
       // now parse through the rest of the schedule
-      await archiveSeason(tour, year, dataProvider, records, overwrite);
+      await archiveSeason(tour, year, eventProvider, records, overwrite);
     }
   };
 };
