@@ -32,6 +32,7 @@ const ApolloWrapper = function () {
   });
 
   this.query = async function ({ operationName, variables, query }) {
+    await client.resetStore(); // disable any caching since we cache the results ourselves
     const queryResult = await client.query({
       operationName: operationName,
       variables: variables,
