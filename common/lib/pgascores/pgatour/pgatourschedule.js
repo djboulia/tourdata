@@ -39,8 +39,7 @@ const PgaTourSchedule = function (tour, year, pageCache) {
     });
 
     if (schedule) {
-      // need to post process golf channel data before
-      // returning it
+      // need to post process data before returning it
       const records = scheduleData.normalize(schedule);
 
       return records;
