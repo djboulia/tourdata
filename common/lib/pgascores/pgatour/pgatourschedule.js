@@ -33,31 +33,31 @@ const PgaTourSchedule = function (tour, year, pageCache) {
     const scheduleData = new ScheduleData(tour, year);
 
     // look in the archive first, then go to web if necessary
-    const tournament_data = await archive.get().catch(() => {
+    const schedule = await archive.get().catch(() => {
       console.log("no schedule archive item found for year " + year);
       return undefined;
     });
 
-    if (tournament_data) {
+    if (schedule) {
       // need to post process golf channel data before
       // returning it
-      const records = scheduleData.normalize(tournament_data);
+      const records = scheduleData.normalize(schedule);
 
       return records;
     } else {
       console.log("no archive/cache item found, going to graph for schedule");
 
-      const tournament_data = await this.getLive().catch((e) => {
+      const schedule = await this.getLive().catch((e) => {
         throw e;
       });
 
-      const records = scheduleData.normalize(tournament_data);
+      const records = scheduleData.normalize(schedule);
 
       if (records) {
         // if we parsed the data correctly,
         // save it in the cache for next time
         const id = archive.getId();
-        pageCache.put(id, tournament_data);
+        pageCache.put(id, schedule);
       }
 
       return records;
@@ -83,7 +83,10 @@ const PgaTourSchedule = function (tour, year, pageCache) {
 
         tournament.tournamentRecap = courseDetails?.tournamentRecap;
 
-        console.log("tournament: ", tournament);
+        console.log(
+          "retrieved tournament details for: ",
+          tournament?.tournamentName
+        );
         resultTournaments.push(tournament);
       }
 
@@ -98,28 +101,30 @@ const PgaTourSchedule = function (tour, year, pageCache) {
    * go directly to the graph to get the schedule for the given year
    */
   this.getLive = async function () {
-    console.log("going to graph for schedule");
+    console.log(
+      "going to graph for schedule for year " + year + ", tour " + tour
+    );
 
-    const tournament_data = await qlGetSchedule(tour, year);
-    // console.log(tournament_data);
+    const season = await qlGetSchedule(tour, year);
+    // console.log(season);
 
     // returned schedule is broken up into completed vs. upcoming lists
     // grab the course details for each tournament
 
-    if (tournament_data?.schedule?.completed) {
-      const completed = tournament_data.schedule.completed;
+    if (season?.schedule?.completed) {
+      const completed = season.schedule.completed;
 
-      tournament_data.schedule.completed = await addCourseDetails(completed);
+      season.schedule.completed = await addCourseDetails(completed);
       // console.log("results.completed:", completed);
     }
-    if (tournament_data?.schedule?.upcoming) {
-      const upcoming = tournament_data.schedule.upcoming;
+    if (season?.schedule?.upcoming) {
+      const upcoming = season.schedule.upcoming;
 
-      tournament_data.schedule.upcoming = await addCourseDetails(upcoming);
+      season.schedule.upcoming = await addCourseDetails(upcoming);
       // console.log("results.upcoming:", upcoming);
     }
 
-    return tournament_data;
+    return season;
   };
 
   /**
@@ -137,24 +142,29 @@ const PgaTourSchedule = function (tour, year, pageCache) {
     const scheduleData = new ScheduleData(tour, year);
 
     // go get it from the web and store result
-    const tournament_data = await this.getLive().catch(() => {
+    const seasonSchedule = await this.getLive().catch((e) => {
+      console.log(e);
+      console.log("Error getting schedule from the web!");
       return undefined;
     });
 
-    if (tournament_data) {
-      // make sure the schedule is valid by parsing it first
-      const records = scheduleData.normalize(tournament_data);
-
-      if (records) {
-        const result = await archive.put(tournament_data).catch((e) => {
-          throw e;
-        });
-
-        return result;
-      } else {
-        throw new Error("archiveSchedule failed! Invalid schedule data!");
-      }
+    if (!seasonSchedule) {
+      throw new Error("archiveSchedule failed! Invalid schedule data!");
     }
+
+    // make sure the schedule is valid by parsing it first
+    const records = scheduleData.normalize(seasonSchedule);
+
+    if (!records) {
+      console.log("archiveSchedule failed! Invalid schedule data!");
+      return undefined;
+    }
+
+    const result = await archive.put(seasonSchedule).catch((e) => {
+      throw e;
+    });
+
+    return result;
   };
 };
 

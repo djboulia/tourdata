@@ -12,7 +12,7 @@ var SeasonArchiver = require("./archiver/seasonarchiver.js");
 var RankingsArchiver = require("./archiver/rankingsarchiver.js");
 
 var archive = function () {
-  const tour = "pga-tour";
+  const tour = "pga";
   let year = new Date().getFullYear();
 
   // try to archive the past events for the current season

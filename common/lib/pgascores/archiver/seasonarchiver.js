@@ -101,7 +101,9 @@ const SeasonArchiver = function (tour) {
     // relevant during the first COVID year where the season
     // changed due to cancellations and reschedules
     const records = await scheduleProvider.archive();
-    console.log("updated schedule archive for " + year);
+    console.log(
+      "updated schedule archive for " + year + " " + records?.length + " events"
+    );
 
     // if the schedule succeeded, then we can archive the season
     if (records) {

@@ -96,7 +96,7 @@ var ArchiveBlaster = function (tour) {
         // relevant during the first COVID year where the season
         // changed due to cancellations and reschedules
         golfChannel.archiveSchedule().then((result) => {
-          console.log("updated schedule archive for " + year);
+          console.log("ArchiveBlaster: updated schedule archive for " + year);
         });
 
         if (records) {

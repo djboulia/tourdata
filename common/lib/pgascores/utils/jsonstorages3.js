@@ -72,7 +72,7 @@ const JsonStorageS3 = function (serviceCredentials, bucket) {
 
       // see if the object exists
       s3.headObject(params, function (err) {
-        console.log("s3 result ", err);
+        // console.log("s3 result ", err);
         if (err) {
           // we eat any errors and assume the key doesn't exist
           console.log(`Could not find object with key ${key}. `, err.code);

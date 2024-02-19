@@ -34,7 +34,7 @@ const ScheduleItemData = function (tour, year) {
    * @param {Array} golfClubs array of country clubs
    */
   const getCourses = function (event) {
-    console.log("getCourses event: ", event);
+    // console.log("getCourses event: ", event);
     const courses = event?.tournamentRecap?.courses;
 
     const result = [];
