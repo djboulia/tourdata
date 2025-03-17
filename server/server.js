@@ -17,7 +17,7 @@ var boot = require("loopback-boot");
 var app = (module.exports = loopback());
 
 app.start = function () {
-  // try to archive first
+  // try to archive any unarchived seasons
   if (!process.env.NO_ARCHIVE) {
     var archive = require("../common/lib/pgascores/archivejob.js");
     archive.run();
