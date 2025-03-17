@@ -89,7 +89,7 @@ const ScheduleData = function (tour, year) {
    * @returns an event record, undefined if not found
    */
   this.findEvent = function (schedule, eventid) {
-    console.log("schedule: ", schedule);
+    // console.log("schedule: ", schedule);
     for (let i = 0; i < schedule.length; i++) {
       const record = schedule[i];
 

@@ -46,7 +46,8 @@ const QUERY = gql`
         ...InputValue
       }
       type {
-        ...TypeRef
+        name
+        description
       }
     }
     interfaces {
@@ -65,7 +66,6 @@ const QUERY = gql`
   fragment InputValue on __InputValue {
     name
     description
-    defaultValue
   }
 
   fragment TypeRef on __Type {
